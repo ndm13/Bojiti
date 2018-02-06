@@ -5,61 +5,76 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.CharBuffer;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-import net.miscfolder.bojiti.SPI;
 import net.miscfolder.bojiti.parser.MimeTypes;
 import net.miscfolder.bojiti.parser.Parser;
+import net.miscfolder.bojiti.worker.SPI;
 import org.jsoup.nodes.*;
 import org.jsoup.select.Elements;
 
 @MimeTypes({"text/html","text/xhtml","application/xhtml","application/xml+html"})
 public class HTMLParser extends Parser{
+	private enum Cache{
+		CSS(()->SPI.Parsers.getFirst("text/css")),
+		SVG(()->Optional
+				.ofNullable(SPI.Parsers.getFirst("image/svg"))
+				.orElse(SPI.Parsers.getFirst("text/svg"))),
+		JS(()->Optional
+				.ofNullable(SPI.Parsers.getFirst("text/javascript"))
+				.orElse(SPI.Parsers.getFirst("application/javascript"))),
+		TEXT(()->SPI.Parsers.getFirst("text/plain"));
+
+		private final Supplier<Parser> supplier;
+		private boolean loaded = false;
+		private Parser parser;
+
+		Cache(Supplier<Parser> supplier){
+			this.supplier = supplier;
+		}
+		public synchronized Parser get(){
+			if(!loaded){
+				parser = supplier.get();
+				loaded = true;
+			}
+			return parser;
+		}
+	}
+
 	@Override
-	public Set<URL> parse(URL base, CharSequence chars){
-		// TODO more parsers
-		Parser css = SPI.Parsers.getFirst("text/css"),
-				js = SPI.Parsers.getFirst("text/javascript"),
-				svg = SPI.Parsers.getFirst("image/svg"),
-				text = SPI.Parsers.getFirst("text/plain");
-
-		if(js == null) js = SPI.Parsers.getFirst("application/javascript");
-		if(svg == null) SPI.Parsers.getFirst("text/svg");
-
+	public Set<URL> parse(URL url, CharSequence chars){
 		// We've got a 99% chance of this being a CharBuffer.
 		// We can take advantage of this using CharArrayReader.
 		Document document = (chars instanceof CharBuffer ?
-				            usingReader((CharBuffer) chars, base) :
-							usingString(chars.toString(), base));
-
+				            loadWithReader((CharBuffer) chars, url) :
+							loadWithString(chars.toString(), url));
+		URL base = null;
 		try{
 			// If the document sets a base URL, use that
 			if(document.baseUri() != null)
 				base = new URL(document.baseUri());
-		}catch(MalformedURLException ignore){}
+		}catch(MalformedURLException ignore){
+			base = url;
+		}
 
-		return onceOverNodeParser(base, document, css, js, svg, text);
+		return parseWithFlattenedNodeChain(url, base, document);
 	}
 
-	private Document usingString(String string, URL url){
+	private Document loadWithString(String string, URL url){
 		return org.jsoup.parser.Parser.parse(string, url.toExternalForm());
 	}
 
-	private Document usingReader(CharBuffer buffer, URL url){
+	private Document loadWithReader(CharBuffer buffer, URL url){
 		return org.jsoup.parser.Parser.htmlParser()
 				.parseInput(new CharArrayReader(buffer.array()), url.toExternalForm());
 	}
 
-	Set<URL> onceOverNodeParser(URL base, Document document,
-			Parser css, Parser js, Parser svg, Parser text){
+	Set<URL> parseWithFlattenedNodeChain(URL original, URL base, Document document){
 		Set<URL> scraped = new HashSet<>();
-		// This approach is pretty heavy.  Jsoup does all the validation we're
-		// looking for, but the NodeVisitor framework is a little heavy, esp.
-		// with multiple iterations on massive (hundreds of MB+) documents.
-		// We should iterate all the nodes once and accumulate like normal, but
-		// also pick up Comments.
 		StringBuilder
 				comments = new StringBuilder(),
 				content = new StringBuilder();
@@ -74,23 +89,23 @@ public class HTMLParser extends Parser{
 				// assigns DataNode to these types.
 				Node parent = node.parentNode();
 				if("style".equalsIgnoreCase(parent.nodeName())){
-					if(css != null)
-						scraped.addAll(css.parse(base, ((DataNode)node).getWholeData()));
+					if(Cache.CSS.get() != null)
+						scraped.addAll(Cache.CSS.get().parse(base, ((DataNode)node).getWholeData()));
 				}else if("script".equalsIgnoreCase(parent.nodeName())){
 					if(parent.hasAttr("type")){
 						Parser scriptParser = SPI.Parsers.getFirst(parent.attr("type"));
 						if(scriptParser != null)
 							scraped.addAll(scriptParser.parse(base, ((DataNode)node).getWholeData()));
-					}else if(js != null){
-						scraped.addAll(js.parse(base, ((DataNode)node).getWholeData()));
+					}else if(Cache.JS.get() != null){
+						scraped.addAll(Cache.JS.get().parse(base, ((DataNode)node).getWholeData()));
 					}
 				}else{
-					announce(l->l.onParserError(base,
+					announce(l->l.onParserError(original,
 							new MysteryDataNodeException((DataNode)node, parent)));
 				}
 			}else if(node.nodeName().equalsIgnoreCase("svg")){
-				if(svg != null)
-					scraped.addAll(svg.parse(base, node.outerHtml()));
+				if(Cache.SVG.get() != null)
+					scraped.addAll(Cache.SVG.get().parse(base, node.outerHtml()));
 			}else{
 				// Mine the attributes
 				for(Attribute attribute : node.attributes()){
@@ -100,26 +115,26 @@ public class HTMLParser extends Parser{
 							"src".equalsIgnoreCase(key)){
 						scraped.add(resolve(base, value));
 					}else if(key.startsWith("on")){
-						if(js != null){
-							scraped.addAll(js.parse(base, value));
+						if(Cache.JS.get() != null){
+							scraped.addAll(Cache.JS.get().parse(base, value));
 						}
 					}
 				}
 			}
 		});
-		if(text != null){
-			scraped.addAll(text.parse(base, comments.toString()));
-			scraped.addAll(text.parse(base, content.toString()));
+		if(Cache.TEXT.get() != null){
+			scraped.addAll(Cache.TEXT.get().parse(base, comments.toString()));
+			scraped.addAll(Cache.TEXT.get().parse(base, content.toString()));
 		}
 		scraped.remove(null);
 
 		return scraped;
 	}
 
-	Set<URL> traditionalDOMParser(URL base, Document document,
-			Parser css, Parser js, Parser svg, Parser text){
+	@Deprecated
+	Set<URL> parseWithGetAllElements(URL original, URL base, Document document){
 		Set<URL> scraped = new HashSet<>();
-		announce(l->l.onParserUpdate(base, 0, (double)0));
+		announce(l->l.onParserUpdate(original, 0, 0));
 		Elements elements = document.getAllElements();
 		int size = elements.size();
 		AtomicInteger found = new AtomicInteger();
@@ -130,45 +145,45 @@ public class HTMLParser extends Parser{
 				if(attribute.getKey().equalsIgnoreCase("href")){
 					URL url = resolve(base, attribute.getValue());
 					if(url != null && scraped.add(url)){
-						announce(l->l.onParserUpdate(base, found.incrementAndGet(), progress));
+						announce(l->l.onParserUpdate(original, found.incrementAndGet(), progress));
 					}
 				}
 				if(attribute.getKey().equalsIgnoreCase("src")){
 					URL url = resolve(base, attribute.getValue());
 					if(url != null && scraped.add(url)){
-						announce(l->l.onParserUpdate(base, found.incrementAndGet(), progress));
+						announce(l->l.onParserUpdate(original, found.incrementAndGet(), progress));
 					}
 				}
-				if(css != null && attribute.getKey().equalsIgnoreCase("style")){
-					updateExternal(css.parse(base, attribute.getValue()), scraped, base, found, progress);
+				if(Cache.CSS.get() != null && attribute.getKey().equalsIgnoreCase("style")){
+					updateExternal(Cache.CSS.get().parse(base, attribute.getValue()), scraped, original, found, progress);
 				}
-				if(js != null && attribute.getKey().startsWith("on")){
-					updateExternal(js.parse(base, attribute.getValue()), scraped, base, found, progress);
+				if(Cache.JS.get() != null && attribute.getKey().startsWith("on")){
+					updateExternal(Cache.JS.get().parse(base, attribute.getValue()), scraped, original, found, progress);
 				}
 			}
-			if(css != null && element.tagName().equalsIgnoreCase("style")){
-				updateExternal(css.parse(base, element.html()), scraped, base, found, progress);
+			if(Cache.CSS.get() != null && element.tagName().equalsIgnoreCase("style")){
+				updateExternal(Cache.CSS.get().parse(base, element.html()), scraped, original, found, progress);
 			}
 			if("script".equalsIgnoreCase(element.tagName()) && element.hasText()){
 				if(element.hasAttr("type")){
 					Parser scriptParser = SPI.Parsers.getFirst(element.attr("type"));
 					if(scriptParser != null){
 						updateExternal(scriptParser.parse(base, element.html()),
-								scraped, base, found, progress);
+								scraped, original, found, progress);
 					}
-				}else if(js != null){
+				}else if(Cache.JS.get() != null){
 					// Probably vanilla JS
-					updateExternal(js.parse(base, element.html()), scraped, base, found, progress);
+					updateExternal(Cache.JS.get().parse(base, element.html()), scraped, original, found, progress);
 				}
 			}
-			if(svg != null && element.tagName().equalsIgnoreCase("svg")){
-				updateExternal(svg.parse(base, element.html()), scraped, base, found, progress);
+			if(Cache.SVG.get() != null && element.tagName().equalsIgnoreCase("svg")){
+				updateExternal(Cache.SVG.get().parse(base, element.html()), scraped, original, found, progress);
 			}
 		}
-		if(text != null){
-			updateExternal(text.parse(base, document.text()), scraped, base, found, 0.9);
+		if(Cache.TEXT.get() != null){
+			updateExternal(Cache.TEXT.get().parse(base, document.text()), scraped, original, found, 0.9);
 		}
-		announce(l->l.onParserUpdate(base, found.get(), 1));
+		announce(l->l.onParserUpdate(original, found.get(), 1));
 
 		return scraped;
 	}

@@ -1,4 +1,4 @@
-package net.miscfolder.bojiti;
+package net.miscfolder.bojiti.worker;
 
 import java.lang.annotation.Annotation;
 import java.util.*;

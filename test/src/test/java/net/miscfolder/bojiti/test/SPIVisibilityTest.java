@@ -2,7 +2,7 @@ package net.miscfolder.bojiti.test;
 
 import java.util.Collection;
 
-import net.miscfolder.bojiti.SPI;
+import net.miscfolder.bojiti.worker.SPI;
 
 public class SPIVisibilityTest{
 	public static void main(String[] args){

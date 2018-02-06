@@ -8,10 +8,7 @@ import java.util.Set;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.*;
 
 class HTMLParserTest{
 	private static URL url;
@@ -38,26 +35,15 @@ class HTMLParserTest{
 		if(documentBase == null) documentBase = url;
 	}
 
-	@RepeatedTest(100)
+	@Test
+	@Deprecated
 	void oldVersion(){
-		System.out.println((oldV = parser
-				.traditionalDOMParser(documentBase, document, null, null, null, null))
-				.size());
+		oldV = parser.parseWithGetAllElements(url, documentBase, document);
 	}
 
-	@RepeatedTest(100)
+	@Test
 	void newVersion(){
-		newV = parser.onceOverNodeParser(documentBase, document, null, null, null, null);
-	}
-
-	@RepeatedTest(100)
-	void warmOldVersion(){
-		oldVersion();
-	}
-
-	@RepeatedTest(100)
-	void warmNewVersion(){
-		newVersion();
+		newV = parser.parseWithFlattenedNodeChain(url, documentBase, document);
 	}
 
 	@AfterAll

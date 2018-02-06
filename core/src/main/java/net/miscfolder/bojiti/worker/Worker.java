@@ -1,33 +1,39 @@
-package net.miscfolder.bojiti;
+package net.miscfolder.bojiti.worker;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 import net.miscfolder.bojiti.downloader.Downloader;
 import net.miscfolder.bojiti.downloader.RedirectionException;
 import net.miscfolder.bojiti.downloader.Response;
+import net.miscfolder.bojiti.internal.Announcer;
 import net.miscfolder.bojiti.parser.Parser;
 
-public class Worker implements Runnable{
-	public static final int CONCURRENT_CONNECTIONS = 16;
+public class Worker implements Runnable, Announcer<Worker.Listener>{
+	private static final int CONCURRENT_CONNECTIONS = 16;
+
+	private final Set<Listener> listeners =
+			Collections.newSetFromMap(new ConcurrentHashMap<>());
+	private final Iterator<URL> urlProvider;
 
 	private ForkJoinPool
 			workerService = new ForkJoinPool(CONCURRENT_CONNECTIONS),
 			parserService = new ForkJoinPool();
 
-	private final Iterator<URL> urlProvider;
-	private final Consumer<Response> responseConsumer;
-	private final Consumer<Set<URL>> urlConsumer;
 
-	public Worker(Iterator<URL> urlProvider, Consumer<Response> responseConsumer, Consumer<Set<URL>> urlConsumer){
+	public Worker(Iterator<URL> urlProvider){
 		this.urlProvider = urlProvider;
-		this.responseConsumer = responseConsumer;
-		this.urlConsumer = urlConsumer;
+	}
+
+	@Override
+	public Set<Listener> listeners(){
+		return listeners;
 	}
 
 	public void start(){
@@ -49,7 +55,7 @@ public class Worker implements Runnable{
 		if(downloader != null){
 			try{
 				Response response = downloader.download(url);
-				responseConsumer.accept(response);
+				announce(l->l.onDownloadComplete(response));
 				parserService.submit(()->{
 					String type = response.getContentType().toLowerCase();
 					int semicolon = type.indexOf(';');
@@ -57,21 +63,14 @@ public class Worker implements Runnable{
 					Parser parser = SPI.Parsers.getFirst(type);
 					if(parser != null){
 						Set<URL> urls = parser.parse(url, response.getContent());
-						urlConsumer.accept(urls);
-					}else{
-						// TODO fix
-						synchronized(System.out){System.err.println("ERROR: No parser for type: " + type);}
+						announce(l->l.onParsingComplete(url, urls));
 					}
 				});
 			}catch(IOException e){
-				// TODO fix
-				e.printStackTrace();
+				announce(l->l.onWorkerError(url, e));
 			}catch(RedirectionException e){
-				urlConsumer.accept(e.getTargets());
+				announce(l->l.onParsingComplete(url, e.getTargets()));
 			}
-		}else{
-			// TODO fix
-			synchronized(System.out){System.err.println("ERROR: No downloader for protocol: " + url.getProtocol());}
 		}
 		if(!Thread.currentThread().isInterrupted()){
 			workerService.submit(this);
@@ -83,5 +82,11 @@ public class Worker implements Runnable{
 		workerService.awaitTermination(timeout, unit);
 		parserService.shutdown();
 		parserService.awaitTermination(timeout, unit);
+	}
+
+	public interface Listener{
+		void onDownloadComplete(Response response);
+		void onParsingComplete(URL host, Set<URL> urls);
+		void onWorkerError(URL url, IOException exception);
 	}
 }

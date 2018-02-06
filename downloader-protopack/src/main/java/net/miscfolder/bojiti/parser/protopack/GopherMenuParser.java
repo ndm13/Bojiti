@@ -6,7 +6,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import net.miscfolder.bojiti.SPI;
+import net.miscfolder.bojiti.worker.SPI;
 import net.miscfolder.bojiti.parser.MimeTypes;
 import net.miscfolder.bojiti.parser.Parser;
 
