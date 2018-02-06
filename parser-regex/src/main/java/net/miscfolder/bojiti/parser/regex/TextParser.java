@@ -2,7 +2,6 @@ package net.miscfolder.bojiti.parser.regex;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.CharBuffer;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -15,9 +14,9 @@ import net.miscfolder.bojiti.parser.MimeTypes;
 @MimeTypes("text/plain")
 public class TextParser extends RegexBasedParser{
 	private static final Pattern
-			OBFUSCATED_AT = Pattern.compile("[\\s\\[({/:_-]+\\s*(at|@)\\s*[\\]/)}\\s]+", Pattern.CASE_INSENSITIVE),
-			OBFUSCATED_DOT = Pattern.compile("[\\s\\[({/:_-]+\\s*(dot|\\.)\\s*[\\]/)}\\s]+", Pattern.CASE_INSENSITIVE),
-			NOSPAM = Pattern.compile("[-._]?\\s*[\\[({:_-]*\\s*no[\\s-._]*spam\\s*[\\])}]*\\s*", Pattern.CASE_INSENSITIVE),
+			OBFUSCATED_AT = Pattern.compile("[\\s\\[({/:_-]+\\s*(at|@)\\s*[]/)}\\s]+", Pattern.CASE_INSENSITIVE),
+			OBFUSCATED_DOT = Pattern.compile("[\\s\\[({/:_-]+\\s*(dot|\\.)\\s*[]/)}\\s]+", Pattern.CASE_INSENSITIVE),
+			NOSPAM = Pattern.compile("[-._]?\\s*[\\[({:_-]*\\s*no[\\s-._]*spam\\s*[])}]*\\s*", Pattern.CASE_INSENSITIVE),
 			TEXT_URL_FINDER = Pattern.compile("([a-z0-9]+:)?" +
 					"(//)?" +
 					"([\\p{L}\\d]+(:[\\p{L}\\d-_~]+)?@)?" +
@@ -29,16 +28,7 @@ public class TextParser extends RegexBasedParser{
 					"(#[\\d\\p{L}-_~%+.:*!()]*)?", Pattern.CASE_INSENSITIVE);
 
 	@Override
-	public Set<URL> parse(URL url, String string){
-		return parse(url, (CharSequence) string);
-	}
-
-	@Override
-	public Set<URL> parse(URL url, CharBuffer charBuffer){
-		return parse(url, (CharSequence) charBuffer);
-	}
-
-	private Set<URL> parse(URL url, CharSequence chars){
+	public Set<URL> parse(URL url, CharSequence chars){
 		Map<Pattern,String> replacementMap = new HashMap<>();
 		replacementMap.put(NOSPAM,"");
 		replacementMap.put(OBFUSCATED_AT,"@");
@@ -51,13 +41,8 @@ public class TextParser extends RegexBasedParser{
 			try{
 				matches.add(new URL(finesse(url, matcher.group())));
 			}catch(MalformedURLException e){
-				// TODO fix
-				System.err.println("ERROR: Couldn't create URL:\n\t" +
-						url.toExternalForm() + " -> " + matcher.group() + "\n\t" +
-						e.getLocalizedMessage() + "\n\tContext:\t\"" +
-						deobfuscated.substring(
-								matcher.start() - 20, matcher.end() + 20) + '"');
-
+				announce(l->l.onParserError(url,
+						new RegexParserException(e, deobfuscated, matcher)));
 			}
 		}
 

@@ -2,7 +2,6 @@ package net.miscfolder.bojiti.parser.jsoup;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.CharBuffer;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -17,12 +16,7 @@ import org.jsoup.select.Elements;
 @MimeTypes({"text/html","text/xhtml","application/xhtml","application/xml+html"})
 public class HTMLParser extends Parser{
 	@Override
-	public Set<URL> parse(URL url, CharBuffer data){
-		return parse(url, new String(data.array()));
-	}
-
-	@Override
-	public Set<URL> parse(URL base, String data){
+	public Set<URL> parse(URL base, CharSequence chars){
 		// TODO more parsers
 		Parser css = SPI.Parsers.getFirst("text/css"),
 				js = SPI.Parsers.getFirst("text/javascript"),
@@ -33,7 +27,7 @@ public class HTMLParser extends Parser{
 		if(svg == null) SPI.Parsers.getFirst("text/svg");
 
 		// DEBUG: Unavoidable bottleneck? (~1-2 sec)
-		Document document = org.jsoup.parser.Parser.parse(data, base.toExternalForm());
+		Document document = org.jsoup.parser.Parser.parse(chars.toString(), base.toExternalForm());
 		try{
 			// If the document sets a base URL, use that
 			if(document.baseUri() != null)
@@ -76,11 +70,8 @@ public class HTMLParser extends Parser{
 						scraped.addAll(js.parse(base, ((DataNode)node).getWholeData()));
 					}
 				}else{
-					// TODO log like a pro
-					System.err.println("Mystery DataNode!\n" +
-							((DataNode)node).getWholeData() +
-							"\nParent:\n" + parent.outerHtml() +
-							"\nParent Node Name: " + parent.nodeName());
+					announce(l->l.onParserError(base,
+							new MysteryDataNodeException((DataNode)node, parent)));
 				}
 			}else if(node.nodeName().equalsIgnoreCase("svg")){
 				if(svg != null)
@@ -90,8 +81,8 @@ public class HTMLParser extends Parser{
 				for(Attribute attribute : node.attributes()){
 					String key = attribute.getKey();
 					String value = attribute.getValue();
-					if(key.equalsIgnoreCase("href") ||
-							key.equalsIgnoreCase("src")){
+					if("href".equalsIgnoreCase(key) ||
+							"src".equalsIgnoreCase(key)){
 						scraped.add(resolve(base, value));
 					}else if(key.startsWith("on")){
 						if(js != null){
@@ -113,7 +104,7 @@ public class HTMLParser extends Parser{
 	Set<URL> traditionalDOMParser(URL base, Document document,
 			Parser css, Parser js, Parser svg, Parser text){
 		Set<URL> scraped = new HashSet<>();
-		onUpdate(base,0,0);
+		announce(l->l.onParserUpdate(base, 0, (double)0));
 		Elements elements = document.getAllElements();
 		int size = elements.size();
 		AtomicInteger found = new AtomicInteger();
@@ -124,13 +115,13 @@ public class HTMLParser extends Parser{
 				if(attribute.getKey().equalsIgnoreCase("href")){
 					URL url = resolve(base, attribute.getValue());
 					if(url != null && scraped.add(url)){
-						onUpdate(base, found.incrementAndGet(), progress);
+						announce(l->l.onParserUpdate(base, found.incrementAndGet(), progress));
 					}
 				}
 				if(attribute.getKey().equalsIgnoreCase("src")){
 					URL url = resolve(base, attribute.getValue());
 					if(url != null && scraped.add(url)){
-						onUpdate(base, found.incrementAndGet(), progress);
+						announce(l->l.onParserUpdate(base, found.incrementAndGet(), progress));
 					}
 				}
 				if(css != null && attribute.getKey().equalsIgnoreCase("style")){
@@ -162,7 +153,7 @@ public class HTMLParser extends Parser{
 		if(text != null){
 			updateExternal(text.parse(base, document.text()), scraped, base, found, 0.9);
 		}
-		onUpdate(base, found.get(), 1);
+		announce(l->l.onParserUpdate(base, found.get(), 1));
 
 		return scraped;
 	}
@@ -176,7 +167,7 @@ public class HTMLParser extends Parser{
 	private void updateExternal(Set<URL> external, Set<URL> scraped, URL base, AtomicInteger found, double progress){
 		int before = scraped.size();
 		scraped.addAll(external);
-		onUpdate(base, found.addAndGet(scraped.size() - before), progress);
+		announce(l->l.onParserUpdate(base, found.addAndGet(scraped.size() - before), progress));
 	}
 
 
@@ -188,10 +179,7 @@ public class HTMLParser extends Parser{
 		try{
 			return new URL(base, target);
 		}catch(MalformedURLException e){
-			// TODO fix
-			System.err.println("ERROR: Couldn't create URL:\n\t" +
-					base.toExternalForm() + " -> " + target + "\n\t" +
-					e.getLocalizedMessage());
+			announce(l->l.onParserError(base, new ResolutionException(base, target, e)));
 			return null;
 		}
 	}

@@ -18,7 +18,7 @@ public abstract class URLConnectionDownloader extends Downloader{
 				getCharset(connection),
 				connection.getContentType(),
 				connection.getContentLengthLong());
-		onDownloadStarted(response);
+		announce(l->l.onDownloadStarted(response));
 
 		MessageDigest digest = MessageDigest.getInstance(Response.CONTENT_HASH_TYPE);
 		if(isInfiniteStream(connection))
@@ -37,7 +37,7 @@ public abstract class URLConnectionDownloader extends Downloader{
 			}
 			return response.complete(digest.digest());
 		}catch(IOException exception){
-			onDownloadError(response, exception);
+			announce(l->l.onDownloadError(response, exception));
 			throw exception;
 		}
 	}

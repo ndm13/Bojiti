@@ -15,7 +15,6 @@ abstract class RegexBasedParser extends Parser{
 	private static final Pattern HAS_PROTOCOL = Pattern.compile("^[\\w\\d]{2,}:(\\S*)$", Pattern.CASE_INSENSITIVE);
 	private static final Pattern LOCAL = Pattern.compile("^(\\.{0,2}/)+[\\p{L}\\d-_~%+]+(.*)$", Pattern.CASE_INSENSITIVE);
 
-
 	static String finesse(URL parent, String input){
 		URI uri = null;
 		try{

@@ -6,26 +6,17 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-public abstract class Downloader{
+import net.miscfolder.bojiti.internal.Announcer;
+
+public abstract class Downloader implements Announcer<Downloader.Listener>{
 	private Set<Listener> listeners = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-	public abstract Response download(URL url) throws IOException, RedirectionException;
+	@Override
+	public Set<Listener> listeners(){
+		return listeners;
+	}
 
-	public void addDownloadListener(Listener listener){
-		listeners.add(listener);
-	}
-	public void removeDownloadListener(Listener listener){
-		listeners.remove(listener);
-	}
-	protected void onDownloadStarted(Response response){
-		listeners.forEach(l->l.onDownloadStarted(response));
-	}
-	protected void onDownloadComplete(Response response){
-		listeners.forEach(l->l.onDownloadComplete(response));
-	}
-	protected void onDownloadError(Response response, Exception exception){
-		listeners.forEach(l->l.onDownloadError(response, exception));
-	}
+	public abstract Response download(URL url) throws IOException, RedirectionException;
 
 	public interface Listener{
 		void onDownloadStarted(Response response);

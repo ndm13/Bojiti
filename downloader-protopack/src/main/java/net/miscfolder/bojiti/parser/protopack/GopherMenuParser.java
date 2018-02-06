@@ -2,9 +2,9 @@ package net.miscfolder.bojiti.parser.protopack;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.CharBuffer;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import net.miscfolder.bojiti.SPI;
 import net.miscfolder.bojiti.parser.MimeTypes;
@@ -12,6 +12,8 @@ import net.miscfolder.bojiti.parser.Parser;
 
 @MimeTypes("text/x-gopher-menu")
 public class GopherMenuParser extends Parser{
+	private static final Pattern GOPHER_NEWLINE_PATTERN = Pattern.compile("\r\n");
+
 	// Menu types that require another protocol prefix
 	private static final char
 			CCSO_NAMESERVER = '2',
@@ -24,15 +26,10 @@ public class GopherMenuParser extends Parser{
 			GOPHER_ERROR = '3';
 
 	@Override
-	public Set<URL> parse(URL url, CharBuffer charBuffer){
-		return parse(url, charBuffer.toString());
-	}
-
-	@Override
-	public Set<URL> parse(URL url, String string){
+	public Set<URL> parse(URL url, CharSequence chars){
 		StringBuilder text = new StringBuilder();
 		Set<URL> urls = new HashSet<>();
-		for(String line : string.split("\r\n")){
+		for(String line : GOPHER_NEWLINE_PATTERN.split(chars)){
 			if(line.length() > 1){
 				String[] parts = line.split("\t");
 				try{
@@ -71,17 +68,18 @@ public class GopherMenuParser extends Parser{
 								"/" + itemType + selector));
 					}
 				}catch(MalformedURLException e){
-					// TODO port
-					e.printStackTrace();
-				}catch(IndexOutOfBoundsException e){
-					// TODO port
-					throw new IllegalArgumentException("Invalid menu data!", e);
+					announce(l->l.onParserError(url,
+							new InvalidMenuItemException(parts, "URL non-resolvable", e)));
+				}catch(IndexOutOfBoundsException | NumberFormatException e){
+					announce(l->l.onParserError(url,
+							new InvalidMenuItemException(parts, "Menu data invalid", e)));
 				}
 			}
 		}
 
 		Parser textParser = SPI.Parsers.getFirst("text/plain");
-		if(textParser != null) urls.addAll(textParser.parse(url, text.toString()));
+		if(textParser != null)
+			urls.addAll(textParser.parse(url, text.toString()));
 
 		return urls;
 	}

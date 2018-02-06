@@ -8,10 +8,7 @@ import java.net.URLConnection;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
-import net.miscfolder.bojiti.downloader.Protocols;
-import net.miscfolder.bojiti.downloader.RedirectionException;
-import net.miscfolder.bojiti.downloader.Response;
-import net.miscfolder.bojiti.downloader.URLConnectionDownloader;
+import net.miscfolder.bojiti.downloader.*;
 
 @Protocols({"http","https"})
 public class HttpDownloader extends URLConnectionDownloader{
@@ -44,14 +41,14 @@ public class HttpDownloader extends URLConnectionDownloader{
 							connection.getURL(),
 							connection.getResponseCode(),
 							getRedirectTargets(connection));
-					onDownloadError(response, exception);
+					announce(l->l.onDownloadError(response, exception));
 					throw exception;
 				}
-				onDownloadComplete(response);
+				announce(l->l.onDownloadComplete(response));
 				return response;
 			}catch(IOException exception){
 				Response response = download(connection, connection.getErrorStream());
-				onDownloadComplete(response);
+				announce(l->l.onDownloadComplete(response));
 				return response;
 			}
 		}catch(NoSuchAlgorithmException exception){
