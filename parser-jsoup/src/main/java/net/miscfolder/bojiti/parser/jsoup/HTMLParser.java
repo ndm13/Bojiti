@@ -1,7 +1,9 @@
 package net.miscfolder.bojiti.parser.jsoup;
 
+import java.io.CharArrayReader;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.CharBuffer;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -26,8 +28,12 @@ public class HTMLParser extends Parser{
 		if(js == null) js = SPI.Parsers.getFirst("application/javascript");
 		if(svg == null) SPI.Parsers.getFirst("text/svg");
 
-		// DEBUG: Unavoidable bottleneck? (~1-2 sec)
-		Document document = org.jsoup.parser.Parser.parse(chars.toString(), base.toExternalForm());
+		// We've got a 99% chance of this being a CharBuffer.
+		// We can take advantage of this using CharArrayReader.
+		Document document = (chars instanceof CharBuffer ?
+				            usingReader((CharBuffer) chars, base) :
+							usingString(chars.toString(), base));
+
 		try{
 			// If the document sets a base URL, use that
 			if(document.baseUri() != null)
@@ -35,6 +41,15 @@ public class HTMLParser extends Parser{
 		}catch(MalformedURLException ignore){}
 
 		return onceOverNodeParser(base, document, css, js, svg, text);
+	}
+
+	private Document usingString(String string, URL url){
+		return org.jsoup.parser.Parser.parse(string, url.toExternalForm());
+	}
+
+	private Document usingReader(CharBuffer buffer, URL url){
+		return org.jsoup.parser.Parser.htmlParser()
+				.parseInput(new CharArrayReader(buffer.array()), url.toExternalForm());
 	}
 
 	Set<URL> onceOverNodeParser(URL base, Document document,
