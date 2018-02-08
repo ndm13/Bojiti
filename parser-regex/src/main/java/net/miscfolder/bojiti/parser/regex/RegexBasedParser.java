@@ -1,5 +1,6 @@
 package net.miscfolder.bojiti.parser.regex;
 
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -20,6 +21,13 @@ abstract class RegexBasedParser extends Parser{
 	static String finesse(URL parent, String input){
 		while(badStartChars.indexOf(input.charAt(0)) > -1)
 			input = input.substring(1);
+
+		if(LOCAL.matcher(input).matches()){
+			// Relative path
+			try{
+				return new URL(parent, input).toExternalForm();
+			}catch(MalformedURLException ignore){}
+		}
 
 		URI uri = null;
 		try{

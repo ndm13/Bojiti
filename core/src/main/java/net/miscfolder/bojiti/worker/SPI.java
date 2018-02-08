@@ -17,6 +17,8 @@ public final class SPI<T,A extends Annotation>{
 			new SPI<>(Parser.class, MimeTypes.class, MimeTypes::value);
 
 	private final Map<String,Deque<T>> cache = new ConcurrentHashMap<>();
+	// DEBUG
+	private final Set<String> unknown = Collections.newSetFromMap(new ConcurrentHashMap<>());
 	private final Class<T> typeClass;
 	private final Class<A> annotationClass;
 	private final Function<A, String[]> keyGenerator;
@@ -38,7 +40,7 @@ public final class SPI<T,A extends Annotation>{
 	 */
 	public T getFirst(String key){
 		Iterator<T> iterator = get(key).iterator();
-		if(!iterator.hasNext()){
+		if(!iterator.hasNext() && unknown.add(key)){
 			// TODO log like a competent person
 			System.err.println("Requested identifier has no implementation: " + key);
 			return null;

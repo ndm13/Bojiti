@@ -14,9 +14,9 @@ import net.miscfolder.bojiti.parser.MimeTypes;
 @MimeTypes("text/plain")
 public class TextParser extends RegexBasedParser{
 	private static final Pattern
-			OBFUSCATED_AT = Pattern.compile("[\\s\\[({/:_-]+\\s*(at|@)\\s*[]/)}\\s]+", Pattern.CASE_INSENSITIVE),
-			OBFUSCATED_DOT = Pattern.compile("[\\s\\[({/:_-]+\\s*(dot|\\.)\\s*[]/)}\\s]+", Pattern.CASE_INSENSITIVE),
-			NOSPAM = Pattern.compile("[-._]?\\s*[\\[({:_-]*\\s*no[\\s-._]*spam\\s*[])}]*\\s*", Pattern.CASE_INSENSITIVE),
+			OBFUSCATED_AT = Pattern.compile("[\\s\\[({/:_-]*(at|@)[]/)}\\s]*", Pattern.CASE_INSENSITIVE),
+			OBFUSCATED_DOT = Pattern.compile("[\\s\\[({/:_-]*(dot|\\.)[]/)}\\s]*", Pattern.CASE_INSENSITIVE),
+			NOSPAM = Pattern.compile("[-._]?\\s*[\\[({:_-]*no[\\s-._]*spam[])}\\s]*", Pattern.CASE_INSENSITIVE),
 			TEXT_URL_FINDER = Pattern.compile("([a-z0-9]+:)?" +
 					"(//)?" +
 					"([\\p{L}\\d]+(:[\\p{L}\\d-_~]+)?@)?" +

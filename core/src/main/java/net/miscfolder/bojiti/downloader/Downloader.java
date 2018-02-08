@@ -2,14 +2,13 @@ package net.miscfolder.bojiti.downloader;
 
 import java.io.IOException;
 import java.net.URL;
-import java.util.Collections;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 import net.miscfolder.bojiti.internal.Announcer;
 
 public abstract class Downloader implements Announcer<Downloader.Listener>{
-	private Set<Listener> listeners = Collections.newSetFromMap(new ConcurrentHashMap<>());
+	private Set<Listener> listeners = new CopyOnWriteArraySet<>();
 
 	@Override
 	public Set<Listener> listeners(){

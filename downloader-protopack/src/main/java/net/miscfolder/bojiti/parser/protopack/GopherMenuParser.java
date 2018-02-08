@@ -9,9 +9,12 @@ import java.util.regex.Pattern;
 import net.miscfolder.bojiti.worker.SPI;
 import net.miscfolder.bojiti.parser.MimeTypes;
 import net.miscfolder.bojiti.parser.Parser;
+import net.miscfolder.protopack.ProtoPack;
 
 @MimeTypes("text/x-gopher-menu")
 public class GopherMenuParser extends Parser{
+	static{ProtoPack.install();}
+
 	private static final Pattern GOPHER_NEWLINE_PATTERN = Pattern.compile("\r\n");
 
 	// Menu types that require another protocol prefix

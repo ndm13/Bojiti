@@ -80,7 +80,7 @@ public class HTMLParser extends Parser{
 				content = new StringBuilder();
 		flatten(document).forEachOrdered(node->{
 			if(node instanceof Comment){
-				comments.append(node.attr(node.nodeName())).append('\n');
+				comments.append(node.attr(node.nodeName())).append(' ');
 			}else if(node instanceof TextNode){
 				content.append(((TextNode)node).text()).append(' ');
 			}else if(node instanceof DataNode){

@@ -1,14 +1,13 @@
 package net.miscfolder.bojiti.parser;
 
 import java.net.URL;
-import java.util.Collections;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 import net.miscfolder.bojiti.internal.Announcer;
 
 public abstract class Parser implements Announcer<Parser.Listener>{
-	private final Set<Listener> listeners = Collections.newSetFromMap(new ConcurrentHashMap<>());
+	private final Set<Listener> listeners = new CopyOnWriteArraySet<>();
 
 	public abstract Set<URL> parse(URL url, CharSequence chars);
 

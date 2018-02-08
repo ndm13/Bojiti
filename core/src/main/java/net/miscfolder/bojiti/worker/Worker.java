@@ -79,8 +79,12 @@ public class Worker implements Runnable, Announcer<Worker.Listener>{
 
 	public void timeout(long timeout, TimeUnit unit) throws InterruptedException{
 		workerService.shutdown();
+		// DEBUG
+		System.out.println("Stopped accepting new workers");
 		workerService.awaitTermination(timeout, unit);
 		parserService.shutdown();
+		// DEBUG
+		System.out.println("Stopped accepting new parsers");
 		parserService.awaitTermination(timeout, unit);
 	}
 

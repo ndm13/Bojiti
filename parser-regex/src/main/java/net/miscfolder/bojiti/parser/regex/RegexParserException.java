@@ -1,6 +1,5 @@
 package net.miscfolder.bojiti.parser.regex;
 
-import java.net.MalformedURLException;
 import java.util.regex.Matcher;
 
 import net.miscfolder.bojiti.parser.ParserException;
@@ -8,15 +7,15 @@ import net.miscfolder.bojiti.parser.ParserException;
 public class RegexParserException extends ParserException{
 	private final String target, context;
 
-	RegexParserException(MalformedURLException cause, CharSequence source, Matcher matcher, int index){
+	RegexParserException(Exception cause, CharSequence source, Matcher matcher, int index){
 		this(cause, matcher.group(index), matcherContext(source, matcher).toString());
 	}
 
-	RegexParserException(MalformedURLException cause, CharSequence source, Matcher matcher){
+	RegexParserException(Exception cause, CharSequence source, Matcher matcher){
 		this(cause, matcher.group(), matcherContext(source, matcher).toString());
 	}
 
-	private RegexParserException(MalformedURLException cause, String target, String context){
+	private RegexParserException(Exception cause, String target, String context){
 		super("Parsing failed for target: '" + target + "' context: '" + context + '\'', cause);
 		this.target = target;
 		this.context = context;
