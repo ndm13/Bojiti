@@ -1,6 +1,7 @@
 package net.miscfolder.bojiti.worker;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.URL;
 import java.util.Collections;
 import java.util.Iterator;
@@ -62,8 +63,8 @@ public class Worker implements Runnable, Announcer<Worker.Listener>{
 					if(semicolon != -1) type = type.substring(0,semicolon);
 					Parser parser = SPI.Parsers.getFirst(type);
 					if(parser != null){
-						Set<URL> urls = parser.parse(url, response.getContent());
-						announce(l->l.onParsingComplete(url, urls));
+						Set<URI> uris = parser.parse(url, response.getContent());
+						announce(l->l.onParsingComplete(url, uris));
 					}
 				});
 			}catch(IOException e){
@@ -90,7 +91,7 @@ public class Worker implements Runnable, Announcer<Worker.Listener>{
 
 	public interface Listener{
 		void onDownloadComplete(Response response);
-		void onParsingComplete(URL host, Set<URL> urls);
+		void onParsingComplete(URL host, Set<URI> uris);
 		void onWorkerError(URL url, IOException exception);
 	}
 }

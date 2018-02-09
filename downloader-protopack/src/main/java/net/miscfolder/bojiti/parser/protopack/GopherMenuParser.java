@@ -1,14 +1,15 @@
 package net.miscfolder.bojiti.parser.protopack;
 
-import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import net.miscfolder.bojiti.worker.SPI;
 import net.miscfolder.bojiti.parser.MimeTypes;
 import net.miscfolder.bojiti.parser.Parser;
+import net.miscfolder.bojiti.worker.SPI;
 import net.miscfolder.protopack.ProtoPack;
 
 @MimeTypes("text/x-gopher-menu")
@@ -29,9 +30,9 @@ public class GopherMenuParser extends Parser{
 			GOPHER_ERROR = '3';
 
 	@Override
-	public Set<URL> parse(URL url, CharSequence chars){
+	public Set<URI> parse(URL url, CharSequence chars){
 		StringBuilder text = new StringBuilder();
-		Set<URL> urls = new HashSet<>();
+		Set<URI> uris = new HashSet<>();
 		for(String line : GOPHER_NEWLINE_PATTERN.split(chars)){
 			if(line.length() > 1){
 				String[] parts = line.split("\t");
@@ -45,7 +46,7 @@ public class GopherMenuParser extends Parser{
 					int port = Integer.parseInt(parts[4]);
 
 					if(hostname.startsWith("URL:")){
-						urls.add(new URL(hostname.substring(4)));
+						uris.add(new URI(hostname.substring(4)));
 					}else if(itemType != GOPHER_ERROR && itemType != GOPHER_INFO){
 						String protocol;
 						switch(itemType){
@@ -67,10 +68,12 @@ public class GopherMenuParser extends Parser{
 						if(!selector.startsWith("/")){
 							selector = '/' + selector;
 						}
-						urls.add(new URL(protocol, hostname, port != 70 ? port : -1,
-								"/" + itemType + selector));
+						uris.add(new URI(protocol, null, hostname,
+								port != 70 ? port : -1,
+								"/" + itemType + selector,
+								null, null));
 					}
-				}catch(MalformedURLException e){
+				}catch(URISyntaxException e){
 					announce(l->l.onParserError(url,
 							new InvalidMenuItemException(parts, "URL non-resolvable", e)));
 				}catch(IndexOutOfBoundsException | NumberFormatException e){
@@ -82,8 +85,8 @@ public class GopherMenuParser extends Parser{
 
 		Parser textParser = SPI.Parsers.getFirst("text/plain");
 		if(textParser != null)
-			urls.addAll(textParser.parse(url, text.toString()));
+			uris.addAll(textParser.parse(url, text.toString()));
 
-		return urls;
+		return uris;
 	}
 }

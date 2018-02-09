@@ -1,5 +1,6 @@
 package net.miscfolder.bojiti.parser.jsoup;
 
+import java.net.URI;
 import java.net.URL;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -15,10 +16,10 @@ public class AngularTemplateParser extends HTMLParser{
 	private static final Pattern DOUBLE_BRACES = Pattern.compile("\\{\\{.*}}");
 
 	@Override
-	public Set<URL> parse(URL url, CharSequence chars){
+	public Set<URI> parse(URL url, CharSequence chars){
 		return super.parse(url, chars)
 				.stream()
-				.filter(found->!DOUBLE_BRACES.matcher(found.toExternalForm()).matches())
+				.filter(found->!DOUBLE_BRACES.matcher(found.toASCIIString()).matches())
 				.collect(Collectors.toSet());
 	}
 }

@@ -23,7 +23,6 @@ abstract class RegexBasedParser extends Parser{
 			input = input.substring(1);
 
 		if(LOCAL.matcher(input).matches()){
-			// Relative path
 			try{
 				return new URL(parent, input).toExternalForm();
 			}catch(MalformedURLException ignore){}

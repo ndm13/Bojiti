@@ -1,15 +1,16 @@
 package net.miscfolder.bojiti.downloader;
 
+import java.net.URI;
 import java.net.URL;
 import java.util.Collections;
 import java.util.Set;
 
 public class RedirectionException extends Exception{
-	private final Set<URL> targets;
+	private final Set<URI> targets;
 	private final URL source;
 	private final int status;
 
-	public RedirectionException(URL source, int status, Set<URL> targets){
+	public RedirectionException(URL source, int status, Set<URI> targets){
 		this.source = source;
 		this.status = status;
 		this.targets = Collections.unmodifiableSet(targets);
@@ -23,7 +24,7 @@ public class RedirectionException extends Exception{
 		return status;
 	}
 
-	public Set<URL> getTargets(){
+	public Set<URI> getTargets(){
 		return targets;
 	}
 

@@ -1,6 +1,7 @@
 package net.miscfolder.bojiti.parser.regex;
 
-import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,19 +29,19 @@ public class TextParser extends RegexBasedParser{
 					"(#[\\d\\p{L}-_~%+.:*!()]*)?", Pattern.CASE_INSENSITIVE);
 
 	@Override
-	public Set<URL> parse(URL url, CharSequence chars){
+	public Set<URI> parse(URL url, CharSequence chars){
 		Map<Pattern,String> replacementMap = new HashMap<>();
 		replacementMap.put(NOSPAM,"");
 		replacementMap.put(OBFUSCATED_AT,"@");
 		replacementMap.put(OBFUSCATED_DOT,".");
 		String deobfuscated = multimatch(chars, replacementMap).toString();
-		Set<URL> matches = new HashSet<>();
+		Set<URI> matches = new HashSet<>();
 		Matcher matcher = TEXT_URL_FINDER.matcher(deobfuscated);
 
 		while(matcher.find()){
 			try{
-				matches.add(new URL(finesse(url, matcher.group())));
-			}catch(MalformedURLException e){
+				matches.add(new URI(finesse(url, matcher.group())));
+			}catch(URISyntaxException e){
 				announce(l->l.onParserError(url,
 						new RegexParserException(e, deobfuscated, matcher)));
 			}
