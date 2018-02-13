@@ -1,6 +1,7 @@
 package net.miscfolder.bojiti.parser.regex;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.URL;
 import java.util.Scanner;
 
@@ -21,8 +22,8 @@ class CssParserTest{
 		CssParser parser = new CssParser();
 		URL url = new URL(YT_CSS_SOURCE);
 		String source = quickDownload(url);
-		for(URL found : parser.parse(url, source)){
-			System.out.println(found.toExternalForm());
+		for(URI found : parser.parse(url, source)){
+			System.out.println(found.toASCIIString());
 		}
 	}
 

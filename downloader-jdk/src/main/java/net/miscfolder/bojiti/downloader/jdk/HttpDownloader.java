@@ -1,14 +1,14 @@
 package net.miscfolder.bojiti.downloader.jdk;
 
 import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLConnection;
+import java.net.*;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
-import net.miscfolder.bojiti.downloader.*;
+import net.miscfolder.bojiti.downloader.Protocols;
+import net.miscfolder.bojiti.downloader.RedirectionException;
+import net.miscfolder.bojiti.downloader.Response;
+import net.miscfolder.bojiti.downloader.URLConnectionDownloader;
 
 @Protocols({"http","https"})
 public class HttpDownloader extends URLConnectionDownloader{
@@ -66,15 +66,18 @@ public class HttpDownloader extends URLConnectionDownloader{
 		return null;
 	}
 
-	private static Set<URL> getRedirectTargets(URLConnection connection){
+	private static Set<URI> getRedirectTargets(URLConnection connection){
 		List<String> targetList = connection.getHeaderFields().get("location");
 		if(targetList == null) targetList = connection.getHeaderFields().get("Location");
 		if(targetList == null) return Collections.emptySet();
-		Set<URL> targets = new HashSet<>();
+		Set<URI> targets = new HashSet<>();
 		for(String target : targetList){
 			try{
-				targets.add(new URL(connection.getURL(), target));
-			}catch(MalformedURLException ignore){}
+				targets.add(new URL(connection.getURL(), target).toURI());
+			}catch(MalformedURLException | URISyntaxException ignore){
+				// DEBUG
+				ignore.printStackTrace();
+			}
 		}
 		return targets;
 	}

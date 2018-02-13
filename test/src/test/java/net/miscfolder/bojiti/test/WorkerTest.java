@@ -28,8 +28,7 @@ public class WorkerTest{
 				if(line.isEmpty())
 					break;
 				backend.add(new URL(line));
-				if(++loaded % 10 == 0)
-					System.out.print("\rLoaded " + loaded);
+				System.out.print("\rLoaded " + loaded);
 			}catch(MalformedURLException ignore){
 				System.err.println("Malformed URL");
 			}

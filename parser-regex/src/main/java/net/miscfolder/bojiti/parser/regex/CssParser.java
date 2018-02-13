@@ -1,6 +1,7 @@
 package net.miscfolder.bojiti.parser.regex;
 
-import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.HashSet;
 import java.util.Set;
@@ -16,14 +17,14 @@ public class CssParser extends RegexBasedParser{
 			Pattern.compile("(url|@import)\\(([\'\"]?[^\'\") \n]*)", Pattern.CASE_INSENSITIVE);
 
 	@Override
-	public Set<URL> parse(URL url, CharSequence sequence){
+	public Set<URI> parse(URL url, CharSequence sequence){
 		Matcher matcher = PATTERN.matcher(sequence);
-		Set<URL> matches = new HashSet<>();
+		Set<URI> matches = new HashSet<>();
 
 		while(matcher.find()){
 			try{
-				matches.add(new URL(finesse(url, matcher.group(2))));
-			}catch(MalformedURLException e){
+				matches.add(new URI(finesse(url, matcher.group(2))));
+			}catch(URISyntaxException e){
 				announce(l->l.onParserError(url,
 						new RegexParserException(e, sequence, matcher, 2)));
 			}

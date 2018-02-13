@@ -1,6 +1,9 @@
 package net.miscfolder.bojiti.test.backend;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Collections;
 import java.util.Set;
@@ -12,17 +15,23 @@ import java.util.concurrent.TransferQueue;
 import net.miscfolder.bojiti.downloader.Response;
 
 public class InMemoryBackend implements Backend{
-	private final Set<URL> discovered = ConcurrentHashMap.newKeySet();
-	private final TransferQueue<URL> queue = new LinkedTransferQueue<>();
-
-	private URL element = null;
+	private final Set<URI> discovered = ConcurrentHashMap.newKeySet();
+	private final TransferQueue<URI> queue = new LinkedTransferQueue<>();
 
 	@Override
 	public void add(URL... urls){
-		for(URL url : urls)
-			if(discovered.add(url))
-				queue.add(url);
+		for(URL url : urls){
+			try{
+				URI uri = url.toURI();
+				if(discovered.add(uri)) queue.add(uri);
+			}catch(URISyntaxException e){
+				// DEBUG
+				e.printStackTrace();
+			}
+		}
 	}
+
+	private URI element = null;
 
 	@Override
 	public boolean hasNext(){
@@ -36,31 +45,42 @@ public class InMemoryBackend implements Backend{
 
 	@Override
 	public URL next(){
-		hasNext();
-		URL element = this.element;
-		System.out.println("Took element " + element.toExternalForm());
-		this.element = null;
-		return element;
+		do{
+			hasNext();
+			URI element = this.element;
+			System.out.println(Thread.currentThread().getName() +
+					" \tTook element " + element.toASCIIString());
+			this.element = null;
+			try{
+				return element.toURL();
+			}catch(MalformedURLException e){
+				// DEBUG
+				e.printStackTrace();
+			}
+		}while(true);
 	}
 
-	public Set<URL> getDiscovered(){
+	public Set<URI> getDiscovered(){
 		return Collections.unmodifiableSet(discovered);
 	}
 
 	@Override
 	public void onDownloadComplete(Response response){
-		System.out.println("Downloaded " + response.getURL().toExternalForm());
+		System.out.println(Thread.currentThread().getName() +
+				" \tDownloaded " + response.getURL().toExternalForm());
 	}
 
 	@Override
-	public void onParsingComplete(URL host, Set<URL> urls){
-		System.out.println("Parsed " + urls.size() + " from " + host.toExternalForm());
-		for(URL url : urls){
-			if(discovered.add(url)){
+	public void onParsingComplete(URL host, Set<URI> uris){
+		System.out.println(Thread.currentThread().getName() +
+				" \tParsed " + uris.size() + " from " + host.toExternalForm());
+		for(URI uri : uris){
+			if(discovered.add(uri)){
 				try{
-					queue.transfer(url);
+					queue.transfer(uri);
 				}catch(InterruptedException ignore){
-					System.err.println("Interrupted while transferring " + url.toExternalForm());
+					System.err.println(Thread.currentThread().getName() +
+							" \tInterrupted while transferring " + uri.toASCIIString());
 				}
 			}
 		}
@@ -69,7 +89,8 @@ public class InMemoryBackend implements Backend{
 	@Override
 	public void onWorkerError(URL url, IOException exception){
 		synchronized(System.err){
-			System.out.println("Error on " + url.toExternalForm());
+			System.out.println(Thread.currentThread().getName() +
+					" \tError on " + url.toExternalForm());
 			exception.printStackTrace();
 		}
 	}

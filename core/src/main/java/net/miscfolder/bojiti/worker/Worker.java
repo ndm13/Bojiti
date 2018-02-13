@@ -1,13 +1,12 @@
 package net.miscfolder.bojiti.worker;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.URL;
-import java.util.Collections;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 import net.miscfolder.bojiti.downloader.Downloader;
 import net.miscfolder.bojiti.downloader.RedirectionException;
@@ -15,20 +14,21 @@ import net.miscfolder.bojiti.downloader.Response;
 import net.miscfolder.bojiti.internal.Announcer;
 import net.miscfolder.bojiti.parser.Parser;
 
-public class Worker implements Runnable, Announcer<Worker.Listener>{
-	private static final int CONCURRENT_CONNECTIONS = 16;
+public class Worker implements Announcer<Worker.Listener>{
+	private static final int MAX_CONCURRENT_CONNECTIONS = 16;
+	private final Semaphore semaphore = new Semaphore(MAX_CONCURRENT_CONNECTIONS);
 
-	private final Set<Listener> listeners =
-			Collections.newSetFromMap(new ConcurrentHashMap<>());
+	private final Set<Listener> listeners = new CopyOnWriteArraySet<>();
 	private final Iterator<URL> urlProvider;
 
-	private ForkJoinPool
-			workerService = new ForkJoinPool(CONCURRENT_CONNECTIONS),
-			parserService = new ForkJoinPool();
+	private ExecutorService
+			monitorService = Executors.newSingleThreadExecutor(),
+			downloaderService = Executors.newFixedThreadPool(MAX_CONCURRENT_CONNECTIONS),
+			parserService = Executors.newCachedThreadPool();
 
 
 	public Worker(Iterator<URL> urlProvider){
-		this.urlProvider = urlProvider;
+		this.urlProvider = Objects.requireNonNull(urlProvider);
 	}
 
 	@Override
@@ -37,19 +37,31 @@ public class Worker implements Runnable, Announcer<Worker.Listener>{
 	}
 
 	public void start(){
-		for(int i=0;i<CONCURRENT_CONNECTIONS;i++)
-			workerService.submit(this);
+		monitorService.submit(()->{
+			while(!downloaderService.isShutdown()){
+				try{
+					semaphore.acquire();
+					downloaderService.submit(()->{
+						try{
+							this.process();
+						}catch(Exception e){
+							e.printStackTrace();
+						}
+						// Must release
+						semaphore.release();
+					});
+				}catch(InterruptedException e){
+					break;
+				}
+			}
+		});
 	}
 
-	@Override
-	public void run(){
+	public void process(){
 		URL url;
 		synchronized(urlProvider){
-			if(urlProvider.hasNext()){
-				url = urlProvider.next();
-			}else{
-				return;
-			}
+			if(!urlProvider.hasNext()) return;
+			url = urlProvider.next();
 		}
 		Downloader downloader = SPI.Downloaders.getFirst(url.getProtocol());
 		if(downloader != null){
@@ -59,11 +71,11 @@ public class Worker implements Runnable, Announcer<Worker.Listener>{
 				parserService.submit(()->{
 					String type = response.getContentType().toLowerCase();
 					int semicolon = type.indexOf(';');
-					if(semicolon != -1) type = type.substring(0,semicolon);
+					if(semicolon != -1) type = type.substring(0, semicolon);
 					Parser parser = SPI.Parsers.getFirst(type);
 					if(parser != null){
-						Set<URL> urls = parser.parse(url, response.getContent());
-						announce(l->l.onParsingComplete(url, urls));
+						Set<URI> uris = parser.parse(url, response.getContent());
+						announce(l->l.onParsingComplete(url, uris));
 					}
 				});
 			}catch(IOException e){
@@ -72,25 +84,27 @@ public class Worker implements Runnable, Announcer<Worker.Listener>{
 				announce(l->l.onParsingComplete(url, e.getTargets()));
 			}
 		}
-		if(!Thread.currentThread().isInterrupted()){
-			workerService.submit(this);
-		}
 	}
 
 	public void timeout(long timeout, TimeUnit unit) throws InterruptedException{
-		workerService.shutdown();
+		monitorService.shutdown();
+		System.out.println("Stopped creating new workers");
+		monitorService.awaitTermination(timeout, unit);
+		downloaderService.shutdown();
 		// DEBUG
 		System.out.println("Stopped accepting new workers");
-		workerService.awaitTermination(timeout, unit);
+		downloaderService.awaitTermination(timeout, unit);
 		parserService.shutdown();
 		// DEBUG
 		System.out.println("Stopped accepting new parsers");
 		parserService.awaitTermination(timeout, unit);
 	}
 
+
 	public interface Listener{
 		void onDownloadComplete(Response response);
-		void onParsingComplete(URL host, Set<URL> urls);
+		void onParsingComplete(URL host, Set<URI> urls);
 		void onWorkerError(URL url, IOException exception);
 	}
+
 }

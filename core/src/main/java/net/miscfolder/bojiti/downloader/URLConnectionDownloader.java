@@ -47,14 +47,16 @@ public abstract class URLConnectionDownloader extends Downloader{
 			return Charset.forName(connection.getHeaderField("charset"));
 		}catch(IllegalArgumentException ignore){}
 		String contentType = connection.getContentType();
-		int charsetIndex;
-		if((charsetIndex = contentType.indexOf("charset=")) > 0){
-			try{
-				int end = contentType.indexOf(';', charsetIndex);
-				if(end == -1) end = contentType.length();
-				String extracted = contentType.substring(charsetIndex + 7, end);
-				return Charset.forName(extracted);
-			}catch(IllegalArgumentException ignore){}
+		if(contentType != null){
+			int charsetIndex;
+			if((charsetIndex = contentType.indexOf("charset=")) > 0){
+				try{
+					int end = contentType.indexOf(';', charsetIndex);
+					if(end == -1) end = contentType.length();
+					String extracted = contentType.substring(charsetIndex + 7, end);
+					return Charset.forName(extracted);
+				}catch(IllegalArgumentException ignore){}
+			}
 		}
 		// Not apparent - default
 		return Charset.forName("UTF-8");

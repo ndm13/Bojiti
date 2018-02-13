@@ -1,6 +1,8 @@
 package net.miscfolder.bojiti.parser.jsoup;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.util.Scanner;
 
@@ -26,10 +28,13 @@ class HTMLParserTest{
 	}
 
 	@BeforeEach
-	void setUp(){
+	void setUp() throws MalformedURLException{
 		document = Jsoup.parse(source);
-		documentBase = parser.resolve(url, document.baseUri());
-		if(documentBase == null) documentBase = url;
+		URI base = parser.resolve(url, document.baseUri());
+		if(base == null)
+			documentBase = url;
+		else
+			documentBase = base.toURL();
 	}
 
 	@Test

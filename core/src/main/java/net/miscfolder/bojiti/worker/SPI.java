@@ -40,9 +40,10 @@ public final class SPI<T,A extends Annotation>{
 	 */
 	public T getFirst(String key){
 		Iterator<T> iterator = get(key).iterator();
-		if(!iterator.hasNext() && unknown.add(key)){
+		if(!iterator.hasNext()){
 			// TODO log like a competent person
-			System.err.println("Requested identifier has no implementation: " + key);
+			if(unknown.add(key))
+				System.err.println("Requested identifier has no implementation: " + key);
 			return null;
 		}
 		return iterator.next();
