@@ -48,7 +48,8 @@ public class InMemoryBackend implements Backend{
 		do{
 			hasNext();
 			URI element = this.element;
-			System.out.println("Took element " + element.toASCIIString());
+			System.out.println(Thread.currentThread().getName() +
+					" \tTook element " + element.toASCIIString());
 			this.element = null;
 			try{
 				return element.toURL();
@@ -65,18 +66,21 @@ public class InMemoryBackend implements Backend{
 
 	@Override
 	public void onDownloadComplete(Response response){
-		System.out.println("Downloaded " + response.getURL().toExternalForm());
+		System.out.println(Thread.currentThread().getName() +
+				" \tDownloaded " + response.getURL().toExternalForm());
 	}
 
 	@Override
 	public void onParsingComplete(URL host, Set<URI> uris){
-		System.out.println("Parsed " + uris.size() + " from " + host.toExternalForm());
+		System.out.println(Thread.currentThread().getName() +
+				" \tParsed " + uris.size() + " from " + host.toExternalForm());
 		for(URI uri : uris){
 			if(discovered.add(uri)){
 				try{
 					queue.transfer(uri);
 				}catch(InterruptedException ignore){
-					System.err.println("Interrupted while transferring " + uri.toASCIIString());
+					System.err.println(Thread.currentThread().getName() +
+							" \tInterrupted while transferring " + uri.toASCIIString());
 				}
 			}
 		}
@@ -85,7 +89,8 @@ public class InMemoryBackend implements Backend{
 	@Override
 	public void onWorkerError(URL url, IOException exception){
 		synchronized(System.err){
-			System.out.println("Error on " + url.toExternalForm());
+			System.out.println(Thread.currentThread().getName() +
+					" \tError on " + url.toExternalForm());
 			exception.printStackTrace();
 		}
 	}
