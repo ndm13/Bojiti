@@ -1,8 +1,11 @@
 package net.miscfolder.bojiti.test;
 
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.util.Scanner;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 
 import net.miscfolder.bojiti.test.backend.InMemoryBackend;
@@ -28,20 +31,22 @@ public class WorkerTest{
 				if(line.isEmpty())
 					break;
 				backend.add(new URL(line));
-				System.out.print("\rLoaded " + loaded);
+				System.out.print("\rLoaded " + ++loaded);
 			}catch(MalformedURLException ignore){
 				System.err.println("Malformed URL");
 			}
 		}while(true);
 		scanner.close();
 
-		Worker worker = new Worker(backend);
-		worker.addListener(backend);
+		Worker worker = backend.createWorker();
 
 		worker.start();
-		worker.timeout(5, TimeUnit.MINUTES);
+		Thread.sleep(120000);
+		worker.timeout(60, TimeUnit.SECONDS);
 
-		System.out.println("\nDiscovered\n==========");
-		backend.getDiscovered().forEach(System.out::println);
+		Set<URI> knownGood = backend.getKnownGood();
+		System.out.println("\nKnown Good: " + knownGood.size());
+		System.out.println("= = = = = = = = =");
+		new TreeSet<>(knownGood).stream().map(URI::toASCIIString).forEach(System.out::println);
 	}
 }

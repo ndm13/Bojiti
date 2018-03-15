@@ -17,12 +17,13 @@ import net.miscfolder.bojiti.parser.Parser;
 public class Worker implements Announcer<Worker.Listener>{
 	private static final int MAX_CONCURRENT_CONNECTIONS = 16;
 	private final Semaphore semaphore = new Semaphore(MAX_CONCURRENT_CONNECTIONS);
+	private volatile boolean running = false, changingState = false;
 
 	private final Set<Listener> listeners = new CopyOnWriteArraySet<>();
 	private final Iterator<URL> urlProvider;
 
+	private Thread monitor = null;
 	private ExecutorService
-			monitorService = Executors.newSingleThreadExecutor(),
 			downloaderService = Executors.newFixedThreadPool(MAX_CONCURRENT_CONNECTIONS),
 			parserService = Executors.newCachedThreadPool();
 
@@ -37,14 +38,17 @@ public class Worker implements Announcer<Worker.Listener>{
 	}
 
 	public void start(){
-		monitorService.submit(()->{
-			while(!downloaderService.isShutdown()){
+		if(running||changingState) return;
+		changingState = true;
+		monitor = new Thread(()->{
+			while(!Thread.currentThread().isInterrupted() &&
+					!downloaderService.isShutdown()){
 				try{
 					semaphore.acquire();
 					downloaderService.submit(()->{
 						try{
 							this.process();
-						}catch(Exception e){
+						}catch(Throwable e){
 							e.printStackTrace();
 						}
 						// Must release
@@ -52,9 +56,17 @@ public class Worker implements Announcer<Worker.Listener>{
 					});
 				}catch(InterruptedException e){
 					break;
+				}catch(RejectedExecutionException e){
+					// Issue with process submission
+					e.printStackTrace();
+					semaphore.release();
 				}
 			}
 		});
+		monitor.setDaemon(true);
+		monitor.start();
+		changingState = false;
+		running = true;
 	}
 
 	public void process(){
@@ -87,17 +99,29 @@ public class Worker implements Announcer<Worker.Listener>{
 	}
 
 	public void timeout(long timeout, TimeUnit unit) throws InterruptedException{
-		monitorService.shutdown();
-		System.out.println("Stopped creating new workers");
-		monitorService.awaitTermination(timeout, unit);
+		if(!running||changingState) return;
+		changingState = true;
+		monitor.interrupt();
+		monitor.join();
+		System.out.println("Stopped creating new workers"); // DEBUG
+
 		downloaderService.shutdown();
-		// DEBUG
-		System.out.println("Stopped accepting new workers");
+		System.out.println("Stopped accepting new workers"); // DEBUG
 		downloaderService.awaitTermination(timeout, unit);
+
+		// Ensure all workers are done
+		semaphore.acquire(MAX_CONCURRENT_CONNECTIONS);
+
 		parserService.shutdown();
-		// DEBUG
-		System.out.println("Stopped accepting new parsers");
+		System.out.println("Stopped accepting new parsers"); // DEBUG
 		parserService.awaitTermination(timeout, unit);
+
+		// Reset for next round
+		downloaderService = Executors.newFixedThreadPool(MAX_CONCURRENT_CONNECTIONS);
+		parserService = Executors.newCachedThreadPool();
+		semaphore.release(MAX_CONCURRENT_CONNECTIONS);
+		changingState = false;
+		running = false;
 	}
 
 

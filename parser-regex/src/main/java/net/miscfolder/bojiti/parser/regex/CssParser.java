@@ -23,7 +23,7 @@ public class CssParser extends RegexBasedParser{
 
 		while(matcher.find()){
 			try{
-				matches.add(new URI(finesse(url, matcher.group(2))));
+				matches.add(new URI(finesse(url, matcher.group(2), true)));
 			}catch(URISyntaxException e){
 				announce(l->l.onParserError(url,
 						new RegexParserException(e, sequence, matcher, 2)));

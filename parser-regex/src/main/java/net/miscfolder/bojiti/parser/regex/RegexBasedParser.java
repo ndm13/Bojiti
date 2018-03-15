@@ -12,19 +12,32 @@ import java.util.regex.Pattern;
 
 import net.miscfolder.bojiti.parser.Parser;
 
-abstract class RegexBasedParser extends Parser{
+public abstract class RegexBasedParser extends Parser{
 	private static final Pattern HAS_PROTOCOL = Pattern.compile("^[\\w\\d]{2,}:(\\S*)$", Pattern.CASE_INSENSITIVE);
 	private static final Pattern LOCAL = Pattern.compile("^(\\.{0,2}/)+[\\p{L}\\d-_~%+]+(.*)$", Pattern.CASE_INSENSITIVE);
 
 	private static final String badStartChars = "'\":";
 
-	static String finesse(URL parent, String input){
+	public static String finesse(URL parent, String input, boolean probablyRelative){
 		while(badStartChars.indexOf(input.charAt(0)) > -1)
 			input = input.substring(1);
 
+		if(probablyRelative){
+			switch(input.charAt(0)){
+				case '.':
+				case '/':
+				case '#':
+					break;
+				default:
+					if(!HAS_PROTOCOL.matcher(input).matches())
+						input = "./" + input;
+			}
+		}
+
 		if(LOCAL.matcher(input).matches()){
 			try{
-				return new URL(parent, input).toExternalForm();
+				String dotless = input.startsWith("./") ? input.substring(2) : input;
+				return new URL(parent, dotless).toExternalForm();
 			}catch(MalformedURLException ignore){}
 		}
 

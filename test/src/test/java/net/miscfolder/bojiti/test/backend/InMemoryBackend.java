@@ -6,6 +6,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedTransferQueue;
@@ -16,6 +17,7 @@ import net.miscfolder.bojiti.downloader.Response;
 
 public class InMemoryBackend implements Backend{
 	private final Set<URI> discovered = ConcurrentHashMap.newKeySet();
+	private final Set<URI> doa = ConcurrentHashMap.newKeySet();
 	private final TransferQueue<URI> queue = new LinkedTransferQueue<>();
 
 	@Override
@@ -64,6 +66,21 @@ public class InMemoryBackend implements Backend{
 		return Collections.unmodifiableSet(discovered);
 	}
 
+	public Set<URI> getDoa(){
+		return Collections.unmodifiableSet(doa);
+	}
+
+	public Set<URI> getUnchecked(){
+		return Collections.unmodifiableSet(new HashSet<>(queue));
+	}
+
+	public Set<URI> getKnownGood(){
+		Set<URI> knownGood = new HashSet<>(discovered);
+		knownGood.removeAll(doa);
+		knownGood.removeAll(queue);
+		return knownGood;
+	}
+
 	@Override
 	public void onDownloadComplete(Response response){
 		System.out.println(Thread.currentThread().getName() +
@@ -88,6 +105,9 @@ public class InMemoryBackend implements Backend{
 
 	@Override
 	public void onWorkerError(URL url, IOException exception){
+		try{
+			doa.add(url.toURI());
+		}catch(URISyntaxException ignore){} // Best effort
 		synchronized(System.err){
 			System.out.println(Thread.currentThread().getName() +
 					" \tError on " + url.toExternalForm());

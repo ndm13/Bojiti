@@ -1,18 +1,22 @@
 package net.miscfolder.bojiti.downloader;
 
-import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.URLConnection;
 import java.nio.charset.Charset;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Objects;
 
 public abstract class URLConnectionDownloader extends Downloader{
 	protected Response download(URLConnection connection, InputStream stream)
 			throws IOException, NoSuchAlgorithmException{
+		try{
+			Objects.requireNonNull(connection);
+			Objects.requireNonNull(stream);
+		}catch(NullPointerException e){
+			throw new IllegalArgumentException(e);
+		}
 		Response response = new Response(
 				connection.getURL(),
 				getCharset(connection),
@@ -44,8 +48,11 @@ public abstract class URLConnectionDownloader extends Downloader{
 
 	protected static Charset getCharset(URLConnection connection){
 		try{
+			// Ideally we can just use the header
 			return Charset.forName(connection.getHeaderField("charset"));
 		}catch(IllegalArgumentException ignore){}
+
+		// Maybe they set it in the content type
 		String contentType = connection.getContentType();
 		if(contentType != null){
 			int charsetIndex;
@@ -58,8 +65,10 @@ public abstract class URLConnectionDownloader extends Downloader{
 				}catch(IllegalArgumentException ignore){}
 			}
 		}
-		// Not apparent - default
-		return Charset.forName("UTF-8");
+
+		// No other options without adding another dependency and
+		// increasing overhead.  IETF says US-ASCII.  TODO maybe?
+		return Charset.forName("US-ASCII");
 	}
 
 	/**

@@ -15,6 +15,7 @@ import java.util.stream.Stream;
 import net.miscfolder.bojiti.parser.MimeTypes;
 import net.miscfolder.bojiti.parser.Parser;
 import net.miscfolder.bojiti.worker.SPI;
+import net.miscfolder.bojiti.parser.regex.RegexBasedParser;
 import org.jsoup.nodes.*;
 
 @MimeTypes({"text/html","text/xhtml","application/xhtml","application/xml+html"})
@@ -145,7 +146,7 @@ public class HTMLParser extends Parser{
 		try{
 			if(target.startsWith("//"))
 				return new URI(base.getProtocol(), target, null);
-			return new URL(base, target).toURI();
+			return new URL(RegexBasedParser.finesse(base, target, true)).toURI();
 		}catch(MalformedURLException | URISyntaxException e){
 			announce(l->l.onParserError(base, new ResolutionException(base, target, e)));
 			return null;

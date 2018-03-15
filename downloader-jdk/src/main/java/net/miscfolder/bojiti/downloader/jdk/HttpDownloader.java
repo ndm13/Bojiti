@@ -47,9 +47,13 @@ public class HttpDownloader extends URLConnectionDownloader{
 				announce(l->l.onDownloadComplete(response));
 				return response;
 			}catch(IOException exception){
-				Response response = download(connection, connection.getErrorStream());
-				announce(l->l.onDownloadComplete(response));
-				return response;
+				try{
+					Response response = download(connection, connection.getErrorStream());
+					announce(l->l.onDownloadComplete(response));
+					return response;
+				}catch(IllegalArgumentException ignore){
+					throw exception;
+				}
 			}
 		}catch(NoSuchAlgorithmException exception){
 			throw new IllegalStateException(exception);
