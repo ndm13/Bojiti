@@ -21,6 +21,8 @@ public abstract class RegexBasedParser extends Parser{
 	public static String finesse(URL parent, String input, boolean probablyRelative){
 		while(badStartChars.indexOf(input.charAt(0)) > -1)
 			input = input.substring(1);
+		while(input.endsWith("."))  // TextParser sometimes includes ending periods
+			input = input.substring(0,input.length()-1);
 
 		if(probablyRelative){
 			switch(input.charAt(0)){
@@ -36,8 +38,8 @@ public abstract class RegexBasedParser extends Parser{
 
 		if(LOCAL.matcher(input).matches()){
 			try{
-				String dotless = input.startsWith("./") ? input.substring(2) : input;
-				return new URL(parent, dotless).toExternalForm();
+				while(input.startsWith("./")) input = input.substring(2);
+				return new URL(parent, input).toExternalForm();
 			}catch(MalformedURLException ignore){}
 		}
 

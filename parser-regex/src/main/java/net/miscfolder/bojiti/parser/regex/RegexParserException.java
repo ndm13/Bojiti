@@ -29,7 +29,7 @@ public class RegexParserException extends ParserException{
 		return target;
 	}
 
-	private static CharSequence matcherContext(CharSequence sequence, Matcher matcher){
+	static CharSequence matcherContext(CharSequence sequence, Matcher matcher){
 		int start, end;
 		start = Math.max(matcher.start() - 10, 0);
 		end = Math.min(matcher.end() + 10, sequence.length());

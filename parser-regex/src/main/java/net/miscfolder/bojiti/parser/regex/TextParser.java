@@ -15,8 +15,9 @@ import net.miscfolder.bojiti.parser.MimeTypes;
 @MimeTypes("text/plain")
 public class TextParser extends RegexBasedParser{
 	private static final Pattern
-			OBFUSCATED_AT = Pattern.compile("[\\s\\[({/:_-]+(at|@)[]/)}\\s]+", Pattern.CASE_INSENSITIVE),
-			OBFUSCATED_DOT = Pattern.compile("[\\s\\[({/:_-]+(dot|\\.)[]/)}\\s]+", Pattern.CASE_INSENSITIVE),
+			OBFUSCATED_AT = Pattern.compile("([\\s\\[({/:_-]+(at|@)[]/)}\\s]+|\\s@|@\\s)", Pattern.CASE_INSENSITIVE),
+			OBFUSCATED_DOT = Pattern.compile("[\\[({/:_\\-\\s]*([dD][oO][tT]|\\.)[]/)}\\s]*(?![A-Z][a-z])"),
+			OBFUSCATED_SLASH = Pattern.compile("([\\s\\[({/:_-]+(slash|/)[]/)}\\s]+|\\s/|/\\s)", Pattern.CASE_INSENSITIVE),
 			NOSPAM = Pattern.compile("[-._]?\\s*[\\[({:_-]*no[\\s-._]*spam[])}\\s]*", Pattern.CASE_INSENSITIVE),
 			TEXT_URL_FINDER = Pattern.compile("([a-z0-9]+:)?" +
 					"(//)?" +
@@ -34,13 +35,18 @@ public class TextParser extends RegexBasedParser{
 		replacementMap.put(NOSPAM,"");
 		replacementMap.put(OBFUSCATED_AT,"@");
 		replacementMap.put(OBFUSCATED_DOT,".");
+		replacementMap.put(OBFUSCATED_SLASH,"/");
 		String deobfuscated = multimatch(chars, replacementMap).toString();
 		Set<URI> matches = new HashSet<>();
 		Matcher matcher = TEXT_URL_FINDER.matcher(deobfuscated);
 
 		while(matcher.find()){
 			try{
-				matches.add(new URI(finesse(url, matcher.group(), false)));
+				URI uri = new URI(finesse(url, matcher.group(), false));
+				System.err.println("PARSED:\n\t" +
+						RegexParserException.matcherContext(deobfuscated, matcher) +
+						"\n\t" + uri.toASCIIString() + "\n\tvia " + url.toExternalForm());
+				matches.add(uri);
 			}catch(URISyntaxException e){
 				announce(l->l.onParserError(url,
 						new RegexParserException(e, deobfuscated, matcher)));

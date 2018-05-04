@@ -23,13 +23,12 @@ public class Worker implements Announcer<Worker.Listener>{
 	private final Iterator<URL> urlProvider;
 
 	private Thread monitor = null;
-	private ExecutorService
-			downloaderService = Executors.newFixedThreadPool(MAX_CONCURRENT_CONNECTIONS),
-			parserService = Executors.newCachedThreadPool();
+	private ExecutorService downloaderService, parserService;
 
 
 	public Worker(Iterator<URL> urlProvider){
 		this.urlProvider = Objects.requireNonNull(urlProvider);
+		reset();
 	}
 
 	@Override
@@ -49,10 +48,12 @@ public class Worker implements Announcer<Worker.Listener>{
 						try{
 							this.process();
 						}catch(Throwable e){
+							// Don't swallow exceptions; TODO logging?
 							e.printStackTrace();
+						}finally{
+							// Must release
+							semaphore.release();
 						}
-						// Must release
-						semaphore.release();
 					});
 				}catch(InterruptedException e){
 					break;
@@ -117,6 +118,10 @@ public class Worker implements Announcer<Worker.Listener>{
 		parserService.awaitTermination(timeout, unit);
 
 		// Reset for next round
+		reset();
+	}
+
+	protected void reset(){
 		downloaderService = Executors.newFixedThreadPool(MAX_CONCURRENT_CONNECTIONS);
 		parserService = Executors.newCachedThreadPool();
 		semaphore.release(MAX_CONCURRENT_CONNECTIONS);
