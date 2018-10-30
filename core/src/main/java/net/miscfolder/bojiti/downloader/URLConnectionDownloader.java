@@ -6,27 +6,15 @@ import java.nio.charset.Charset;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Objects;
 
-public abstract class URLConnectionDownloader extends Downloader{
-	protected Response download(URLConnection connection, InputStream stream)
+public abstract class URLConnectionDownloader implements Downloader{
+	protected void download(Response response, URLConnection connection, InputStream stream)
 			throws IOException, NoSuchAlgorithmException{
-		try{
-			Objects.requireNonNull(connection);
-			Objects.requireNonNull(stream);
-		}catch(NullPointerException e){
-			throw new IllegalArgumentException(e);
-		}
-		Response response = new Response(
-				connection.getURL(),
-				getCharset(connection),
-				connection.getContentType(),
-				connection.getContentLengthLong());
-		announce(l->l.onDownloadStarted(response));
-
 		MessageDigest digest = MessageDigest.getInstance(Response.CONTENT_HASH_TYPE);
-		if(isInfiniteStream(connection))
-			return response.completeInfinite(digest.digest());
+		if(isInfiniteStream(connection)){
+			response.completeInfinite(digest.digest());
+			return;
+		}
 
 		try(BufferedInputStream inputStream = new BufferedInputStream(new DigestInputStream(stream, digest))){
 			int read;
@@ -37,16 +25,16 @@ public abstract class URLConnectionDownloader extends Downloader{
 				outputStream.write(buffer, 0, read);
 				long end = System.currentTimeMillis();
 				response.updateSpeed(read, end - start);
+				if(Thread.currentThread().isInterrupted()){
+					throw new InterruptedIOException("Thread interrupted during download");
+				}
 				start = end;
 			}
-			return response.complete(digest.digest());
-		}catch(IOException exception){
-			announce(l->l.onDownloadError(response, exception));
-			throw exception;
+			response.complete(digest.digest());
 		}
 	}
 
-	protected static Charset getCharset(URLConnection connection){
+	protected static Charset guessCharset(URLConnection connection){
 		try{
 			// Ideally we can just use the header
 			return Charset.forName(connection.getHeaderField("charset"));

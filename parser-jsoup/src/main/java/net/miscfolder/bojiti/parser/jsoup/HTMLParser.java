@@ -14,21 +14,20 @@ import java.util.stream.Stream;
 
 import net.miscfolder.bojiti.parser.MimeTypes;
 import net.miscfolder.bojiti.parser.Parser;
-import net.miscfolder.bojiti.worker.SPI;
 import net.miscfolder.bojiti.parser.regex.RegexBasedParser;
 import org.jsoup.nodes.*;
 
 @MimeTypes({"text/html","text/xhtml","application/xhtml","application/xml+html"})
 public class HTMLParser extends Parser{
 	private enum Cache{
-		CSS(()->SPI.Parsers.getFirst("text/css")),
+		CSS(()->Parser.SPI.getFirst("text/css")),
 		SVG(()->Optional
-				.ofNullable(SPI.Parsers.getFirst("image/svg"))
-				.orElse(SPI.Parsers.getFirst("text/svg"))),
+				.ofNullable(Parser.SPI.getFirst("image/svg"))
+				.orElse(Parser.SPI.getFirst("text/svg"))),
 		JS(()->Optional
-				.ofNullable(SPI.Parsers.getFirst("text/javascript"))
-				.orElse(SPI.Parsers.getFirst("application/javascript"))),
-		TEXT(()->SPI.Parsers.getFirst("text/plain"));
+				.ofNullable(Parser.SPI.getFirst("text/javascript"))
+				.orElse(Parser.SPI.getFirst("application/javascript"))),
+		TEXT(()->Parser.SPI.getFirst("text/plain"));
 
 		private final Supplier<Parser> supplier;
 		private boolean loaded = false;
@@ -94,14 +93,14 @@ public class HTMLParser extends Parser{
 						uris.addAll(Cache.CSS.get().parse(base, ((DataNode)node).getWholeData()));
 				}else if("script".equalsIgnoreCase(parent.nodeName())){
 					if(parent.hasAttr("type")){
-						Parser scriptParser = SPI.Parsers.getFirst(parent.attr("type"));
+						Parser scriptParser = Parser.SPI.getFirst(parent.attr("type"));
 						if(scriptParser != null)
 							uris.addAll(scriptParser.parse(base, ((DataNode)node).getWholeData()));
 					}else if(Cache.JS.get() != null){
 						uris.addAll(Cache.JS.get().parse(base, ((DataNode)node).getWholeData()));
 					}
 				}else{
-					announce(l->l.onParserError(original,
+					dispatch(l->l.onParserError(original,
 							new MysteryDataNodeException((DataNode)node, parent)));
 				}
 			}else if(node.nodeName().equalsIgnoreCase("svg")){
@@ -148,7 +147,7 @@ public class HTMLParser extends Parser{
 				return new URI(base.getProtocol(), target, null);
 			return new URL(RegexBasedParser.finesse(base, target, true)).toURI();
 		}catch(MalformedURLException | URISyntaxException e){
-			announce(l->l.onParserError(base, new ResolutionException(base, target, e)));
+			dispatch(l->l.onParserError(base, new ResolutionException(base, target, e)));
 			return null;
 		}
 	}

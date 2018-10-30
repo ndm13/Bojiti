@@ -1,20 +1,11 @@
-package net.miscfolder.bojiti.worker;
+package net.miscfolder.bojiti.support;
 
 import java.lang.annotation.Annotation;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
-import net.miscfolder.bojiti.downloader.Downloader;
-import net.miscfolder.bojiti.downloader.Protocols;
-import net.miscfolder.bojiti.parser.MimeTypes;
-import net.miscfolder.bojiti.parser.Parser;
-
 public final class SPI<T,A extends Annotation>{
-	public static final SPI<Downloader,Protocols> Downloaders =
-			new SPI<>(Downloader.class, Protocols.class, Protocols::value);
-	public static final SPI<Parser,MimeTypes> Parsers =
-			new SPI<>(Parser.class, MimeTypes.class, MimeTypes::value);
 
 	private final Map<String,Deque<T>> cache = new ConcurrentHashMap<>();
 	// DEBUG
@@ -23,8 +14,8 @@ public final class SPI<T,A extends Annotation>{
 	private final Class<A> annotationClass;
 	private final Function<A, String[]> keyGenerator;
 
-	private SPI(Class<T> typeClass, Class<A> keyAnnotation,
-			Function<A,String[]> keyGenerator){
+	public SPI(Class<T> typeClass, Class<A> keyAnnotation,
+			Function<A, String[]> keyGenerator){
 		this.typeClass = typeClass;
 		this.annotationClass = keyAnnotation;
 		this.keyGenerator = keyGenerator;
@@ -37,14 +28,15 @@ public final class SPI<T,A extends Annotation>{
 	 *
 	 * @param key   the key to get a provider for
 	 * @return      the first provider available
+	 * @throws NoSuchElementException
+	 *              if there's no provider for the key
 	 */
 	public T getFirst(String key){
 		Iterator<T> iterator = get(key).iterator();
 		if(!iterator.hasNext()){
-			// TODO log like a competent person
-			if(unknown.add(key))
-				System.err.println("Requested identifier has no implementation: " + key);
-			return null;
+			// DEBUG
+			unknown.add(key);
+			throw new NoSuchElementException("Requested identifier has no implementation: " + key);
 		}
 		return iterator.next();
 	}
@@ -58,7 +50,7 @@ public final class SPI<T,A extends Annotation>{
 	 * {@link #getFirst(String)} instead.
 	 *
 	 * @param key   the key to get providers for
-	 * @return      a {@link Collection} of providers
+	 * @return      a {@link Deque} of providers
 	 */
 	public Collection<T> get(String key){
 		Deque<T> cached = cache.get(key);
@@ -76,7 +68,11 @@ public final class SPI<T,A extends Annotation>{
 	 */
 	public void prioritize(String key, T spi){
 		cache.compute(key, (p,q)->{
-			q.remove(spi);
+			if(q != null){
+				q.remove(spi);
+			}else{
+				q = new LinkedList<>();
+			}
 			q.addFirst(spi);
 			return q;
 		});

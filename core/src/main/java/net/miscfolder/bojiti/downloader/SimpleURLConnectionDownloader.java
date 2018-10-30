@@ -22,10 +22,12 @@ public class SimpleURLConnectionDownloader extends URLConnectionDownloader{
 			throw new IllegalArgumentException("URL isn't " + protocolName +
 					"-compatible, or resolver " + connectionType.getCanonicalName() +
 					" is not available/default");
+		Response response = new Response(interim);
 		try{
-			return download(interim, interim.getInputStream());
-		}catch(NoSuchAlgorithmException e){
-			throw new IllegalStateException(e);
+			download(response, interim, interim.getInputStream());
+		}catch(IOException | NoSuchAlgorithmException e){
+			response.dispatch(l->l.onError(e));
 		}
+		return response;
 	}
 }

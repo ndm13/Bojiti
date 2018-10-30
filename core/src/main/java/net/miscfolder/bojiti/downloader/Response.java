@@ -1,5 +1,7 @@
 package net.miscfolder.bojiti.downloader;
 
+import net.miscfolder.bojiti.support.Dispatcher;
+
 import java.io.ByteArrayOutputStream;
 import java.net.URL;
 import java.net.URLConnection;
@@ -7,18 +9,16 @@ import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.time.LocalDateTime;
-import java.util.Collections;
+import java.util.EventListener;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class Response{
+public class Response implements Dispatcher<Response.Listener>{
 	public static final String CONTENT_HASH_TYPE = "SHA-256";
 	public static final int DEFAULT_BUFFER_SIZE = 1024;
-
-	private final Set<SpeedUpdateListener> listeners = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
 	// Always going to be time of instantiation
 	private final LocalDateTime accessed = LocalDateTime.now();
@@ -42,6 +42,13 @@ public class Response{
 	// Properties generated upon completion
 	private boolean complete = false;
 	private byte[] contentHash;
+
+	public Response(URLConnection connection){
+		this(connection.getURL(),
+				URLConnectionDownloader.guessCharset(connection),
+				connection.getContentType(),
+				connection.getContentLengthLong());
+	}
 
 	public Response(URL url, Charset charset, String contentType, long estimatedSize){
 		this.url = url;
@@ -105,22 +112,14 @@ public class Response{
 
 	public void updateSpeed(int bytes, long ms){
 		if(!complete){
-			CompletableFuture.runAsync(()->{
+			ForkJoinPool.commonPool().execute(()->{
 				currentBytes.set(bytes);
 				currentMS.set(ms);
-				int totalBytes = this.totalBytes.addAndGet(bytes);
-				long totalMS = this.totalMS.addAndGet(ms);
-				CompletableFuture.runAsync(()->{
-					long currentSpeed = (bytes * 8) / ms;
-					long averageSpeed = (totalBytes * 8) / totalMS;
-					listeners.forEach(l->l.onSpeedUpdate(currentSpeed, averageSpeed));
-				});
+				totalBytes.addAndGet(bytes);
+				totalMS.addAndGet(ms);
+				dispatch(Listener::onUpdate);
 			});
 		}
-	}
-
-	public void addSpeedUpdateListener(SpeedUpdateListener listener){
-		listeners.add(listener);
 	}
 
 	public synchronized Response complete(byte[] contentHash){
@@ -128,6 +127,7 @@ public class Response{
 			this.contentHash = contentHash;
 			complete = true;
 		}
+		dispatch(Listener::onComplete);
 		return this;
 	}
 
@@ -139,12 +139,20 @@ public class Response{
 			currentBytes.set(-1);
 			currentBytes.set(1);
 		}
+		dispatch(Listener::onComplete);
 		return this;
 	}
 
+	private Set<Listener> listeners = new CopyOnWriteArraySet<>();
 
-	@FunctionalInterface
-	public interface SpeedUpdateListener{
-		void onSpeedUpdate(long currentSpeed, long averageSpeed);
+	@Override
+	public Set<Listener> getEventListeners(){
+		return listeners;
+	}
+
+	public interface Listener extends EventListener{
+		void onUpdate();
+		void onComplete();
+		void onError(Exception e);
 	}
 }

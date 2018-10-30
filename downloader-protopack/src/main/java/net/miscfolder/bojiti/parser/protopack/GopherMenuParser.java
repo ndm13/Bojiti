@@ -9,7 +9,6 @@ import java.util.regex.Pattern;
 
 import net.miscfolder.bojiti.parser.MimeTypes;
 import net.miscfolder.bojiti.parser.Parser;
-import net.miscfolder.bojiti.worker.SPI;
 import net.miscfolder.protopack.ProtoPack;
 
 @MimeTypes("text/x-gopher-menu")
@@ -74,16 +73,16 @@ public class GopherMenuParser extends Parser{
 								null, null));
 					}
 				}catch(URISyntaxException e){
-					announce(l->l.onParserError(url,
+					dispatch(l->l.onParserError(url,
 							new InvalidMenuItemException(parts, "URL non-resolvable", e)));
 				}catch(IndexOutOfBoundsException | NumberFormatException e){
-					announce(l->l.onParserError(url,
+					dispatch(l->l.onParserError(url,
 							new InvalidMenuItemException(parts, "Menu data invalid", e)));
 				}
 			}
 		}
 
-		Parser textParser = SPI.Parsers.getFirst("text/plain");
+		Parser textParser = Parser.SPI.getFirst("text/plain");
 		if(textParser != null)
 			uris.addAll(textParser.parse(url, text.toString()));
 

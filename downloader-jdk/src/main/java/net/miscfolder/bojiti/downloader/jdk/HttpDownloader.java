@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.*;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import java.util.concurrent.Executor;
 
 import net.miscfolder.bojiti.downloader.Protocols;
 import net.miscfolder.bojiti.downloader.RedirectionException;
@@ -19,7 +20,7 @@ public class HttpDownloader extends URLConnectionDownloader{
 	}
 
 	@Override
-	public Response download(URL url) throws IOException, RedirectionException{
+	public Response download(URL url, Executor executor) throws IOException, RedirectionException{
 		URLConnection interim = url.openConnection();
 		if(!(interim instanceof HttpURLConnection))
 			throw new IllegalArgumentException("URL isn't HTTP-compatible");
@@ -41,15 +42,15 @@ public class HttpDownloader extends URLConnectionDownloader{
 							connection.getURL(),
 							connection.getResponseCode(),
 							getRedirectTargets(connection));
-					announce(l->l.onDownloadError(response, exception));
+					dispatch(l->l.onDownloadError(response, exception));
 					throw exception;
 				}
-				announce(l->l.onDownloadComplete(response));
+				dispatch(l->l.onDownloadComplete(response));
 				return response;
 			}catch(IOException exception){
 				try{
 					Response response = download(connection, connection.getErrorStream());
-					announce(l->l.onDownloadComplete(response));
+					dispatch(l->l.onDownloadComplete(response));
 					return response;
 				}catch(IllegalArgumentException ignore){
 					throw exception;

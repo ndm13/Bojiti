@@ -48,7 +48,7 @@ public class TextParser extends RegexBasedParser{
 						"\n\t" + uri.toASCIIString() + "\n\tvia " + url.toExternalForm());
 				matches.add(uri);
 			}catch(URISyntaxException e){
-				announce(l->l.onParserError(url,
+				dispatch(l->l.onParserError(url,
 						new RegexParserException(e, deobfuscated, matcher)));
 			}
 		}
