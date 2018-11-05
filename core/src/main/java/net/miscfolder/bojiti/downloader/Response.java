@@ -1,65 +1,43 @@
 package net.miscfolder.bojiti.downloader;
 
-import net.miscfolder.bojiti.support.Dispatcher;
-
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
+import java.security.DigestOutputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
-import java.util.EventListener;
-import java.util.Set;
-import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class Response implements Dispatcher<Response.Listener>{
+public class Response{
+	// TODO config
 	public static final String CONTENT_HASH_TYPE = "SHA-256";
+	// TODO config
 	public static final int DEFAULT_BUFFER_SIZE = 1024;
 
-	// Always going to be time of instantiation
-	private final LocalDateTime accessed = LocalDateTime.now();
-
-	private final ByteArrayOutputStream byteStream = new ByteArrayOutputStream(DEFAULT_BUFFER_SIZE);
-
-	// Properties from connection itself
 	private final URL url;
 	private final Charset charset;
 	private final String contentType;
-	private final long estimatedSize;
+	private final LocalDateTime accessed;
+	private final long size, ms;
+	private final byte[] contentHash;
+	private final CharBuffer content;
 
-	// Properties updated during download
-	private AtomicInteger
-			currentBytes = new AtomicInteger(),
-			totalBytes = new AtomicInteger();
-	private AtomicLong
-			currentMS = new AtomicLong(),
-			totalMS = new AtomicLong();
-
-	// Properties generated upon completion
-	private boolean complete = false;
-	private byte[] contentHash;
-
-	public Response(URLConnection connection){
-		this(connection.getURL(),
-				URLConnectionDownloader.guessCharset(connection),
-				connection.getContentType(),
-				connection.getContentLengthLong());
-	}
-
-	public Response(URL url, Charset charset, String contentType, long estimatedSize){
+	private Response(URL url, Charset charset, String contentType, LocalDateTime accessed, long size, long ms,
+	                 byte[] contentHash, CharBuffer content){
 		this.url = url;
 		this.charset = charset;
-		this.estimatedSize = estimatedSize;
-
-		if(contentType == null){
-			this.contentType = URLConnection.guessContentTypeFromName(url.toExternalForm());
-		}else{
-			this.contentType = contentType;
-		}
+		this.contentType = contentType;
+		this.accessed = accessed;
+		this.size = size;
+		this.ms = ms;
+		this.contentHash = contentHash;
+		this.content = content;
 	}
 
 	public URL getURL(){
@@ -74,8 +52,9 @@ public class Response implements Dispatcher<Response.Listener>{
 		return contentType;
 	}
 
-	public CharBuffer getContent(){
-		return charset.decode(ByteBuffer.wrap(byteStream.toByteArray()));
+	public String getBasicContentType(){
+		int semicolon = contentType.indexOf(';');
+		return semicolon == -1 ? contentType : contentType.substring(0, semicolon).trim();
 	}
 
 	public LocalDateTime getAccessed(){
@@ -86,73 +65,133 @@ public class Response implements Dispatcher<Response.Listener>{
 		return contentHash;
 	}
 
-	public long getEstimatedSize(){
-		return estimatedSize;
+	public CharBuffer getContent(){
+		return content;
 	}
 
-	public int getDownloadedSize(){
-		return totalBytes.get();
+	public long getSize(){
+		return size;
+	}
+
+	public long getMillis(){
+		return ms;
 	}
 
 	public long getAverageSpeed(){
-		return (totalBytes.get() * 8) / Math.max(totalMS.get(), 1);
+		return (size * 8) / Math.max(ms, 1);
 	}
 
-	public long getCurrentSpeed(){
-		return (currentBytes.get() * 8) / Math.max(currentMS.get(), 1);
+	public interface Progress{
+		URL getURL();
+		Charset getCharset();
+		String getContentType();
+		LocalDateTime getAccessTime();
+		long getEstimatedSize();
+		long getDownloadedSize();
+		long getAverageSpeed();
+		long getCurrentSpeed();
 	}
 
-	public boolean isComplete(){
-		return complete;
-	}
+	public static class Builder implements Progress{
+		private final ByteArrayOutputStream byteStream = new ByteArrayOutputStream(DEFAULT_BUFFER_SIZE);
+		private final OutputStream outputStream;
+		private final MessageDigest digest;
 
-	public ByteArrayOutputStream getByteStream(){
-		return complete ? null : byteStream;
-	}
+		private final AtomicLong
+				currentBytes = new AtomicLong(),
+				totalBytes = new AtomicLong(),
+				currentMS = new AtomicLong(),
+				totalMS = new AtomicLong();
 
-	public void updateSpeed(int bytes, long ms){
-		if(!complete){
-			ForkJoinPool.commonPool().execute(()->{
-				currentBytes.set(bytes);
-				currentMS.set(ms);
-				totalBytes.addAndGet(bytes);
-				totalMS.addAndGet(ms);
-				dispatch(Listener::onUpdate);
-			});
+		private final URL url;
+		private final Charset charset;
+		private final String contentType;
+		private final long estimatedSize;
+
+		private LocalDateTime accessed;
+
+		public Builder(URLConnection connection){
+			try{
+				digest = MessageDigest.getInstance(CONTENT_HASH_TYPE);
+				outputStream = new DigestOutputStream(byteStream, digest);
+			}catch(NoSuchAlgorithmException e){
+				throw new IllegalStateException("Hard-coded algorithm doesn't exist", e);
+			}
+
+			url = connection.getURL();
+			charset = URLConnectionDownloader.guessCharset(connection);
+			contentType = URLConnectionDownloader.guessContentType(connection);
+			estimatedSize = connection.getContentLengthLong();
 		}
-	}
 
-	public synchronized Response complete(byte[] contentHash){
-		if(!complete){
-			this.contentHash = contentHash;
-			complete = true;
+		public Builder update(byte[] bytes, int length, long ms){
+			if(accessed == null) accessed = LocalDateTime.now();
+			try{
+				outputStream.write(bytes, 0, length);
+			}catch(IOException e){
+				throw new IllegalStateException("Output stream closed on update", e);
+			}
+			currentBytes.set(length);
+			currentMS.set(ms);
+			totalBytes.addAndGet(length);
+			totalMS.addAndGet(ms);
+			return this;
 		}
-		dispatch(Listener::onComplete);
-		return this;
-	}
 
-	public synchronized Response completeInfinite(byte[] emptyHash){
-		if(!complete){
-			complete(emptyHash);
-			totalBytes.set(-1);
-			totalMS.set(1);
-			currentBytes.set(-1);
-			currentBytes.set(1);
+		public Response complete(){
+			return new Response(url, charset, contentType, accessed, totalBytes.get(), totalMS.get(), digest.digest(),
+					charset.decode(ByteBuffer.wrap(byteStream.toByteArray())));
 		}
-		dispatch(Listener::onComplete);
-		return this;
-	}
 
-	private Set<Listener> listeners = new CopyOnWriteArraySet<>();
+		public Response completeInfinite(){
+			return new Response(url, charset, contentType, accessed, -1, -1, digest.digest(),
+					CharBuffer.allocate(0));
+		}
 
-	@Override
-	public Set<Listener> getEventListeners(){
-		return listeners;
-	}
+		@Override
+		public URL getURL(){
+			return url;
+		}
 
-	public interface Listener extends EventListener{
-		void onUpdate();
-		void onComplete();
-		void onError(Exception e);
+		@Override
+		public Charset getCharset(){
+			return charset;
+		}
+
+		@Override
+		public String getContentType(){
+			return contentType;
+		}
+
+		@Override
+		public LocalDateTime getAccessTime(){
+			return accessed;
+		}
+
+		@Override
+		public long getEstimatedSize(){
+			return estimatedSize;
+		}
+
+		@Override
+		public long getDownloadedSize(){
+			return totalBytes.get();
+		}
+
+		@Override
+		public long getAverageSpeed(){
+			return (totalBytes.get() * 8) / Math.max(totalMS.get(), 1);
+		}
+
+		@Override
+		public long getCurrentSpeed(){
+			return (currentBytes.get() * 8) / Math.max(currentMS.get(), 1);
+		}
+
+		@Override
+		public String toString(){
+			return accessed + "\t" + contentType + "\t" + getDownloadedSize() + "/~" + estimatedSize + " bytes@" +
+					getCurrentSpeed() + "bps (avg " + getAverageSpeed() + ")\t" + url.toExternalForm();
+		}
 	}
 }

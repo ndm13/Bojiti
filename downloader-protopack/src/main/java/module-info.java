@@ -1,9 +1,9 @@
 import net.miscfolder.bojiti.downloader.protopack.*;
 import net.miscfolder.bojiti.parser.protopack.*;
 
-module downloader.protopack{
-	requires core;
-	requires protopack;
+module net.miscfolder.bojiti.downloader.protopack{
+	requires net.miscfolder.bojiti.core;
+	requires net.miscfolder.protopack;
 	provides net.miscfolder.bojiti.downloader.Downloader with
 			DataDownloader, GopherDownloader, JavaScriptDownloader;
 	/*

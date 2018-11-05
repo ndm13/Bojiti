@@ -1,4 +1,4 @@
-module core {
+module net.miscfolder.bojiti.core {
 	exports net.miscfolder.bojiti.downloader;
 	exports net.miscfolder.bojiti.parser;
 	exports net.miscfolder.bojiti.support;

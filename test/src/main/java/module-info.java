@@ -1,17 +1,15 @@
-module test {
-	// Java dependencies
-	requires javafx.graphics;
-	requires javafx.controls;
-	exports net.miscfolder.bojiti.mvc.view to javafx.graphics;
-	exports net.miscfolder.bojiti.task to javafx.graphics;
+module net.miscfolder.bojiti.test {
 	// "support" dependencies
-	requires core;
-	requires downloader.jdk;
-	requires downloader.protopack;
-	requires parser.jsoup;
-	requires parser.regex;
+	requires net.miscfolder.bojiti.core;
+	requires net.miscfolder.bojiti.downloader.jdk;
+	requires net.miscfolder.bojiti.downloader.protopack;
+	requires net.miscfolder.parser.jsoup;
+	requires net.miscfolder.parser.regex;
 	// "external" dependencies
-	requires roxyproxy;
-	requires protopack;
-	requires java.desktop;
+	requires net.miscfolder.roxyproxy;
+	requires net.miscfolder.protopack;
+	requires java.logging;
+
+	uses net.miscfolder.bojiti.parser.Parser;
+	uses net.miscfolder.bojiti.downloader.Downloader;
 }

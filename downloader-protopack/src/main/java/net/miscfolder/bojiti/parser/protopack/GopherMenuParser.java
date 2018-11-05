@@ -1,18 +1,20 @@
 package net.miscfolder.bojiti.parser.protopack;
 
+import net.miscfolder.bojiti.parser.MimeTypes;
+import net.miscfolder.bojiti.parser.Parser;
+import net.miscfolder.bojiti.parser.ParserException;
+import net.miscfolder.protopack.ProtoPack;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
-import net.miscfolder.bojiti.parser.MimeTypes;
-import net.miscfolder.bojiti.parser.Parser;
-import net.miscfolder.protopack.ProtoPack;
-
 @MimeTypes("text/x-gopher-menu")
-public class GopherMenuParser extends Parser{
+public class GopherMenuParser implements Parser{
 	static{ProtoPack.install();}
 
 	private static final Pattern GOPHER_NEWLINE_PATTERN = Pattern.compile("\r\n");
@@ -29,7 +31,7 @@ public class GopherMenuParser extends Parser{
 			GOPHER_ERROR = '3';
 
 	@Override
-	public Set<URI> parse(URL url, CharSequence chars){
+	public Set<URI> parse(URL url, CharSequence chars, Consumer<ParserException> callback){
 		StringBuilder text = new StringBuilder();
 		Set<URI> uris = new HashSet<>();
 		for(String line : GOPHER_NEWLINE_PATTERN.split(chars)){
@@ -73,18 +75,16 @@ public class GopherMenuParser extends Parser{
 								null, null));
 					}
 				}catch(URISyntaxException e){
-					dispatch(l->l.onParserError(url,
-							new InvalidMenuItemException(parts, "URL non-resolvable", e)));
+					callback.accept(new InvalidMenuItemException(parts, "URL non-resolvable", e));
 				}catch(IndexOutOfBoundsException | NumberFormatException e){
-					dispatch(l->l.onParserError(url,
-							new InvalidMenuItemException(parts, "Menu data invalid", e)));
+					callback.accept(new InvalidMenuItemException(parts, "Menu data invalid", e));
 				}
 			}
 		}
 
 		Parser textParser = Parser.SPI.getFirst("text/plain");
 		if(textParser != null)
-			uris.addAll(textParser.parse(url, text.toString()));
+			uris.addAll(textParser.parse(url, text.toString(), callback));
 
 		return uris;
 	}

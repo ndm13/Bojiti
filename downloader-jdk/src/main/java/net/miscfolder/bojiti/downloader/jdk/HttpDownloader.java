@@ -1,18 +1,19 @@
 package net.miscfolder.bojiti.downloader.jdk;
 
-import java.io.IOException;
-import java.net.*;
-import java.security.NoSuchAlgorithmException;
-import java.util.*;
-import java.util.concurrent.Executor;
-
 import net.miscfolder.bojiti.downloader.Protocols;
 import net.miscfolder.bojiti.downloader.RedirectionException;
 import net.miscfolder.bojiti.downloader.Response;
 import net.miscfolder.bojiti.downloader.URLConnectionDownloader;
 
+import java.io.IOException;
+import java.net.*;
+import java.util.*;
+import java.util.function.Consumer;
+
 @Protocols({"http","https"})
 public class HttpDownloader extends URLConnectionDownloader{
+	private static final System.Logger LOGGER = System.getLogger(HttpDownloader.class.getName());
+
 	private String userAgent;
 
 	public HttpDownloader(){
@@ -20,7 +21,7 @@ public class HttpDownloader extends URLConnectionDownloader{
 	}
 
 	@Override
-	public Response download(URL url, Executor executor) throws IOException, RedirectionException{
+	public Response download(URL url, Consumer<Response.Progress> callback) throws IOException, RedirectionException{
 		URLConnection interim = url.openConnection();
 		if(!(interim instanceof HttpURLConnection))
 			throw new IllegalArgumentException("URL isn't HTTP-compatible");
@@ -35,29 +36,18 @@ public class HttpDownloader extends URLConnectionDownloader{
 		connection.setInstanceFollowRedirects(false);
 
 		try{
-			try{
-				Response response = download(connection, connection.getInputStream());
-				if(connection.getResponseCode() > 299 && connection.getResponseCode() < 400){
-					RedirectionException exception = new RedirectionException(
-							connection.getURL(),
-							connection.getResponseCode(),
-							getRedirectTargets(connection));
-					dispatch(l->l.onDownloadError(response, exception));
-					throw exception;
-				}
-				dispatch(l->l.onDownloadComplete(response));
-				return response;
-			}catch(IOException exception){
-				try{
-					Response response = download(connection, connection.getErrorStream());
-					dispatch(l->l.onDownloadComplete(response));
-					return response;
-				}catch(IllegalArgumentException ignore){
-					throw exception;
-				}
+			Response response = download(connection, connection.getInputStream(), callback);
+			if(connection.getResponseCode() > 299 && connection.getResponseCode() < 400){
+				throw new RedirectionException(response, connection.getResponseCode(),
+						getRedirectTargets(connection));
 			}
-		}catch(NoSuchAlgorithmException exception){
-			throw new IllegalStateException(exception);
+			return response;
+		}catch(IOException exception){
+			try{
+				return download(connection, connection.getErrorStream(), callback);
+			}catch(IOException | IllegalArgumentException ignore){
+				throw exception;
+			}
 		}
 	}
 
@@ -75,13 +65,14 @@ public class HttpDownloader extends URLConnectionDownloader{
 		List<String> targetList = connection.getHeaderFields().get("location");
 		if(targetList == null) targetList = connection.getHeaderFields().get("Location");
 		if(targetList == null) return Collections.emptySet();
+
 		Set<URI> targets = new HashSet<>();
 		for(String target : targetList){
 			try{
 				targets.add(new URL(connection.getURL(), target).toURI());
-			}catch(MalformedURLException | URISyntaxException ignore){
-				// DEBUG
-				ignore.printStackTrace();
+			}catch(MalformedURLException | URISyntaxException e){
+				LOGGER.log(System.Logger.Level.WARNING,
+						()->"Could not resolve/convert URL: " + connection.getURL() + " -> " + target, e);
 			}
 		}
 		return targets;

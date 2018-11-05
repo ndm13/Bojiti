@@ -6,16 +6,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 public final class SPI<T,A extends Annotation>{
-
 	private final Map<String,Deque<T>> cache = new ConcurrentHashMap<>();
-	// DEBUG
-	private final Set<String> unknown = Collections.newSetFromMap(new ConcurrentHashMap<>());
+	private final Set<String> misses = ConcurrentHashMap.newKeySet();
 	private final Class<T> typeClass;
 	private final Class<A> annotationClass;
 	private final Function<A, String[]> keyGenerator;
 
-	public SPI(Class<T> typeClass, Class<A> keyAnnotation,
-			Function<A, String[]> keyGenerator){
+	private volatile boolean logMisses = false;
+
+	public SPI(Class<T> typeClass, Class<A> keyAnnotation, Function<A, String[]> keyGenerator){
 		this.typeClass = typeClass;
 		this.annotationClass = keyAnnotation;
 		this.keyGenerator = keyGenerator;
@@ -23,23 +22,56 @@ public final class SPI<T,A extends Annotation>{
 	}
 
 	/**
+	 * Returns a {@link Set} of all failed lookups, as long as
+	 * {@link #setLoggingMisses(boolean)} logMisses} is true.
+	 *
+	 * @return      a Set of all lookups that weren't resolved while logMisses
+	 *              was enabled
+	 */
+	public Set<String> getLoggedMisses(){
+		return Collections.unmodifiableSet(misses);
+	}
+
+	/**
+	 * Enable or disable logging of failed lookups.
+	 *
+	 * @param logMisses true if enabled, false if disabled.
+	 * @see #getLoggedMisses()
+	 */
+	public void setLoggingMisses(boolean logMisses){
+		this.logMisses = logMisses;
+	}
+
+	/**
+	 * Returns the state of the lookup miss logger.
+	 *
+	 * @return  true if logging failed lookups, false otherwise
+	 * @see #getLoggedMisses()
+	 */
+	public boolean isLoggingMisses(){
+		return logMisses;
+	}
+
+	/**
 	 * Returns the first provider for the given key, or null if there isn't one
 	 * available.
 	 *
-	 * @param key   the key to get a provider for
+	 * @param keys  the keys to get a provider for
 	 * @return      the first provider available
 	 * @throws NoSuchElementException
 	 *              if there's no provider for the key
 	 */
-	public T getFirst(String key){
-		Iterator<T> iterator = get(key).iterator();
-		if(!iterator.hasNext()){
-			// DEBUG
-			unknown.add(key);
-			throw new NoSuchElementException("Requested identifier has no implementation: " + key);
+	public T getFirst(String... keys){
+		for(String key : keys){
+			Iterator<T> iterator = get(key).iterator();
+			if(iterator.hasNext()){
+				return iterator.next();
+			}
+			if(logMisses) misses.add(key);
 		}
-		return iterator.next();
+		throw new NoSuchElementException("Requested identifiers have no implementation: " + Arrays.toString(keys));
 	}
+
 
 	/**
 	 * Gets all providers for the supplied key.  If the key has no providers
@@ -47,15 +79,18 @@ public final class SPI<T,A extends Annotation>{
 	 * returned instead.
 	 *
 	 * To get the first provider in the collection, we recommend using
-	 * {@link #getFirst(String)} instead.
+	 * {@link #getFirst(String...)} instead.
 	 *
 	 * @param key   the key to get providers for
 	 * @return      a {@link Deque} of providers
 	 */
 	public Collection<T> get(String key){
 		Deque<T> cached = cache.get(key);
-		return cached == null ? Collections.emptyList() :
-				Collections.unmodifiableCollection(cached);
+		if(cached == null){
+			if(logMisses) misses.add(key);
+			return Collections.emptySet();
+		}
+		return Collections.unmodifiableCollection(cached);
 	}
 
 	/**

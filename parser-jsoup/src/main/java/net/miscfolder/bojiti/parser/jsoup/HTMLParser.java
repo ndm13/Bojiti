@@ -1,5 +1,12 @@
 package net.miscfolder.bojiti.parser.jsoup;
 
+import net.miscfolder.bojiti.parser.MimeTypes;
+import net.miscfolder.bojiti.parser.Parser;
+import net.miscfolder.bojiti.parser.ParserException;
+import net.miscfolder.bojiti.support.CharBufferReader;
+import net.miscfolder.bojiti.parser.regex.RegexBasedParser;
+import org.jsoup.nodes.*;
+
 import java.io.CharArrayReader;
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -7,26 +14,18 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.CharBuffer;
 import java.util.HashSet;
-import java.util.Optional;
+import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-import net.miscfolder.bojiti.parser.MimeTypes;
-import net.miscfolder.bojiti.parser.Parser;
-import net.miscfolder.bojiti.parser.regex.RegexBasedParser;
-import org.jsoup.nodes.*;
-
 @MimeTypes({"text/html","text/xhtml","application/xhtml","application/xml+html"})
-public class HTMLParser extends Parser{
+public class HTMLParser implements Parser{
 	private enum Cache{
 		CSS(()->Parser.SPI.getFirst("text/css")),
-		SVG(()->Optional
-				.ofNullable(Parser.SPI.getFirst("image/svg"))
-				.orElse(Parser.SPI.getFirst("text/svg"))),
-		JS(()->Optional
-				.ofNullable(Parser.SPI.getFirst("text/javascript"))
-				.orElse(Parser.SPI.getFirst("application/javascript"))),
+		SVG(()->Parser.SPI.getFirst("image/svg", "text/svg")),
+		JS(()->Parser.SPI.getFirst("text/javascript", "application/javascript")),
 		TEXT(()->Parser.SPI.getFirst("text/plain"));
 
 		private final Supplier<Parser> supplier;
@@ -38,7 +37,11 @@ public class HTMLParser extends Parser{
 		}
 		public synchronized Parser get(){
 			if(!loaded){
-				parser = supplier.get();
+				try{
+					parser = supplier.get();
+				}catch(NoSuchElementException e){
+					parser = null;
+				}
 				loaded = true;
 			}
 			return parser;
@@ -46,7 +49,7 @@ public class HTMLParser extends Parser{
 	}
 
 	@Override
-	public Set<URI> parse(URL url, CharSequence chars){
+	public Set<URI> parse(URL url, CharSequence chars, Consumer<ParserException> callback){
 		// We've got a 99% chance of this being a CharBuffer.
 		// We can take advantage of this using CharArrayReader.
 		Document document = (chars instanceof CharBuffer ?
@@ -61,7 +64,7 @@ public class HTMLParser extends Parser{
 			base = url;
 		}
 
-		return parseWithFlattenedNodeChain(url, base, document);
+		return parseWithFlattenedNodeChain(url, base, document, callback);
 	}
 
 	private Document loadWithString(String string, URL url){
@@ -70,10 +73,10 @@ public class HTMLParser extends Parser{
 
 	private Document loadWithReader(CharBuffer buffer, URL url){
 		return org.jsoup.parser.Parser.htmlParser()
-				.parseInput(new CharArrayReader(buffer.array()), url.toExternalForm());
+				.parseInput(buffer.hasArray() ? new CharArrayReader(buffer.array()) : new CharBufferReader(buffer), url.toExternalForm());
 	}
 
-	Set<URI> parseWithFlattenedNodeChain(URL original, URL base, Document document){
+	Set<URI> parseWithFlattenedNodeChain(URL original, URL base, Document document, Consumer<ParserException> callback){
 		Set<URI> uris = new HashSet<>();
 		StringBuilder
 				comments = new StringBuilder(),
@@ -85,27 +88,27 @@ public class HTMLParser extends Parser{
 				content.append(((TextNode)node).text()).append(' ');
 			}else if(node instanceof DataNode){
 				// This is where we parse things like <style> and <script>
-				// ("like": in a perfect world, that is.  Current Jsoup only
-				// assigns DataNode to these types.
+				// ("like": in a perfect world, that is; current Jsoup only
+				// assigns DataNode to these types)
 				Node parent = node.parentNode();
 				if("style".equalsIgnoreCase(parent.nodeName())){
 					if(Cache.CSS.get() != null)
-						uris.addAll(Cache.CSS.get().parse(base, ((DataNode)node).getWholeData()));
+						uris.addAll(Cache.CSS.get().parse(base, ((DataNode)node).getWholeData(), callback));
 				}else if("script".equalsIgnoreCase(parent.nodeName())){
 					if(parent.hasAttr("type")){
-						Parser scriptParser = Parser.SPI.getFirst(parent.attr("type"));
-						if(scriptParser != null)
-							uris.addAll(scriptParser.parse(base, ((DataNode)node).getWholeData()));
+						try{
+							Parser scriptParser = Parser.SPI.getFirst(parent.attr("type"));
+							uris.addAll(scriptParser.parse(base, ((DataNode) node).getWholeData(), callback));
+						}catch(NoSuchElementException ignore){ /* Best effort */ }
 					}else if(Cache.JS.get() != null){
-						uris.addAll(Cache.JS.get().parse(base, ((DataNode)node).getWholeData()));
+						uris.addAll(Cache.JS.get().parse(base, ((DataNode)node).getWholeData(), callback));
 					}
 				}else{
-					dispatch(l->l.onParserError(original,
-							new MysteryDataNodeException((DataNode)node, parent)));
+					callback.accept(new MysteryDataNodeException((DataNode)node, parent));
 				}
 			}else if(node.nodeName().equalsIgnoreCase("svg")){
 				if(Cache.SVG.get() != null)
-					uris.addAll(Cache.SVG.get().parse(base, node.outerHtml()));
+					uris.addAll(Cache.SVG.get().parse(base, node.outerHtml(), callback));
 			}else{
 				// Mine the attributes
 				for(Attribute attribute : node.attributes()){
@@ -113,18 +116,22 @@ public class HTMLParser extends Parser{
 					String value = attribute.getValue();
 					if("href".equalsIgnoreCase(key) ||
 							"src".equalsIgnoreCase(key)){
-						uris.add(resolve(base, value));
+						try{
+							uris.add(resolve(base, value));
+						}catch(MalformedURLException | URISyntaxException e){
+							callback.accept(new ResolutionException(base, value, e));
+						}
 					}else if(key.startsWith("on")){
 						if(Cache.JS.get() != null){
-							uris.addAll(Cache.JS.get().parse(base, value));
+							uris.addAll(Cache.JS.get().parse(base, value, callback));
 						}
 					}
 				}
 			}
 		});
 		if(Cache.TEXT.get() != null){
-			uris.addAll(Cache.TEXT.get().parse(base, comments.toString()));
-			uris.addAll(Cache.TEXT.get().parse(base, content.toString()));
+			uris.addAll(Cache.TEXT.get().parse(base, comments, callback));
+			uris.addAll(Cache.TEXT.get().parse(base, content, callback));
 		}
 		uris.remove(null);
 
@@ -137,18 +144,15 @@ public class HTMLParser extends Parser{
 		return Stream.concat(Stream.of(parent), parent.childNodes().stream().flatMap(HTMLParser::flatten));
 	}
 
-	URI resolve(URL base, String target){
+	URI resolve(URL base, String target) throws URISyntaxException, MalformedURLException{
 		// Filter bracket selectors
 		if((target.startsWith("{[") && target.endsWith("]}")) ||
 				(target.startsWith("[[") && target.endsWith("]]")))
 			return null;
-		try{
-			if(target.startsWith("//"))
-				return new URI(base.getProtocol(), target, null);
-			return new URL(RegexBasedParser.finesse(base, target, true)).toURI();
-		}catch(MalformedURLException | URISyntaxException e){
-			dispatch(l->l.onParserError(base, new ResolutionException(base, target, e)));
-			return null;
-		}
+		// Filter anchors
+		if(target.charAt(0) == '#') return null;
+		if(target.startsWith("//"))
+			return new URI(base.getProtocol(), target, null);
+		return new URL(RegexBasedParser.finesse(base, target, true)).toURI();
 	}
 }

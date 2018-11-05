@@ -1,14 +1,16 @@
 package net.miscfolder.bojiti.parser.regex;
 
+import net.miscfolder.bojiti.parser.MimeTypes;
+import net.miscfolder.bojiti.parser.ParserException;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import net.miscfolder.bojiti.parser.MimeTypes;
 
 @MimeTypes("text/css")
 public class CssParser extends RegexBasedParser{
@@ -17,7 +19,7 @@ public class CssParser extends RegexBasedParser{
 			Pattern.compile("(url|@import)\\(([\'\"]?[^\'\") \n]*)", Pattern.CASE_INSENSITIVE);
 
 	@Override
-	public Set<URI> parse(URL url, CharSequence sequence){
+	public Set<URI> parse(URL url, CharSequence sequence, Consumer<ParserException> callback){
 		Matcher matcher = PATTERN.matcher(sequence);
 		Set<URI> matches = new HashSet<>();
 
@@ -25,8 +27,7 @@ public class CssParser extends RegexBasedParser{
 			try{
 				matches.add(new URI(finesse(url, matcher.group(2), true)));
 			}catch(URISyntaxException e){
-				dispatch(l->l.onParserError(url,
-						new RegexParserException(e, sequence, matcher, 2)));
+				callback.accept(new RegexParserException(e, sequence, matcher, 2));
 			}
 		}
 		return matches;

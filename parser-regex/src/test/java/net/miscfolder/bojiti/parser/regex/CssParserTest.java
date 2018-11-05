@@ -1,13 +1,13 @@
 package net.miscfolder.bojiti.parser.regex;
 
+import net.miscfolder.protopack.ProtoPack;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
 import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
 import java.util.Scanner;
-
-import net.miscfolder.protopack.ProtoPack;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
 
 class CssParserTest{
 	@BeforeAll
@@ -22,7 +22,7 @@ class CssParserTest{
 		CssParser parser = new CssParser();
 		URL url = new URL(YT_CSS_SOURCE);
 		String source = quickDownload(url);
-		for(URI found : parser.parse(url, source)){
+		for(URI found : parser.parse(url, source, x->{})){
 			System.out.println(found.toASCIIString());
 		}
 	}

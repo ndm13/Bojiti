@@ -1,10 +1,10 @@
 package net.miscfolder.bojiti.parser.regex;
 
-import java.net.MalformedURLException;
-import java.net.URL;
-
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import java.net.MalformedURLException;
+import java.net.URL;
 
 class TextParserTest{
 	static TextParser parser;
@@ -34,6 +34,6 @@ class TextParserTest{
 	@Test
 	void parse(){
 		// TODO not an actual "test"
-		parser.parse(host, corpus).forEach(System.out::println);
+		parser.parse(host, corpus, x->{}).forEach(System.out::println);
 	}
 }

@@ -1,5 +1,7 @@
 package net.miscfolder.bojiti.parser.regex;
 
+import net.miscfolder.bojiti.parser.Parser;
+
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -10,11 +12,9 @@ import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import net.miscfolder.bojiti.parser.Parser;
-
-public abstract class RegexBasedParser extends Parser{
+public abstract class RegexBasedParser implements Parser{
 	private static final Pattern HAS_PROTOCOL = Pattern.compile("^[\\w\\d]{2,}:(\\S*)$", Pattern.CASE_INSENSITIVE);
-	private static final Pattern LOCAL = Pattern.compile("^(\\.{0,2}/)+[\\p{L}\\d-_~%+]+(.*)$", Pattern.CASE_INSENSITIVE);
+	private static final Pattern LOCAL = Pattern.compile("^(\\.{0,2}/)+[\\p{L}\\d-_~%+]*(.*)$", Pattern.CASE_INSENSITIVE);
 
 	private static final String badStartChars = "'\":";
 

@@ -3,7 +3,7 @@ package net.miscfolder.bojiti.downloader;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLConnection;
-import java.security.NoSuchAlgorithmException;
+import java.util.function.Consumer;
 
 public class SimpleURLConnectionDownloader extends URLConnectionDownloader{
 	private final Class<? extends URLConnection> connectionType;
@@ -16,18 +16,12 @@ public class SimpleURLConnectionDownloader extends URLConnectionDownloader{
 	}
 
 	@Override
-	public Response download(URL url) throws IOException{
+	public Response download(URL url, Consumer<Response.Progress> callback) throws IOException{
 		URLConnection interim = url.openConnection();
 		if(!connectionType.isInstance(interim))
 			throw new IllegalArgumentException("URL isn't " + protocolName +
 					"-compatible, or resolver " + connectionType.getCanonicalName() +
 					" is not available/default");
-		Response response = new Response(interim);
-		try{
-			download(response, interim, interim.getInputStream());
-		}catch(IOException | NoSuchAlgorithmException e){
-			response.dispatch(l->l.onError(e));
-		}
-		return response;
+		return download(interim, interim.getInputStream(), callback);
 	}
 }

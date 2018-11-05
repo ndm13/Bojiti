@@ -1,37 +1,39 @@
 package net.miscfolder.bojiti.downloader;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.net.URLConnection;
 import java.nio.charset.Charset;
-import java.security.DigestInputStream;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.util.function.Consumer;
 
 public abstract class URLConnectionDownloader implements Downloader{
-	protected void download(Response response, URLConnection connection, InputStream stream)
-			throws IOException, NoSuchAlgorithmException{
-		MessageDigest digest = MessageDigest.getInstance(Response.CONTENT_HASH_TYPE);
+	protected Response download(URLConnection connection, InputStream stream, Consumer<Response.Progress> callback)
+			throws IOException{
+		if(stream == null) throw new IllegalArgumentException("Stream must be non-null");
+		Response.Builder builder = new Response.Builder(connection);
 		if(isInfiniteStream(connection)){
-			response.completeInfinite(digest.digest());
-			return;
+			return builder.completeInfinite();
 		}
 
-		try(BufferedInputStream inputStream = new BufferedInputStream(new DigestInputStream(stream, digest))){
-			int read;
-			byte[] buffer = new byte[Response.DEFAULT_BUFFER_SIZE];
-			ByteArrayOutputStream outputStream = response.getByteStream();
-			long start = System.currentTimeMillis();
-			while((read = inputStream.read(buffer)) > -1){
-				outputStream.write(buffer, 0, read);
-				long end = System.currentTimeMillis();
-				response.updateSpeed(read, end - start);
-				if(Thread.currentThread().isInterrupted()){
-					throw new InterruptedIOException("Thread interrupted during download");
-				}
-				start = end;
+		int read;
+		byte[] buffer = new byte[Response.DEFAULT_BUFFER_SIZE];
+		long start = System.currentTimeMillis();
+		while((read = stream.read(buffer)) > -1){
+			long end = System.currentTimeMillis();
+			callback.accept(builder.update(buffer, read, end - start));
+			if(Thread.currentThread().isInterrupted()){
+				throw new InterruptedIOException("Thread interrupted during download");
 			}
-			response.complete(digest.digest());
+			start = end;
 		}
+		return builder.complete();
+	}
+
+	protected static String guessContentType(URLConnection connection){
+		return connection.getContentType() != null ?
+				connection.getContentType() :
+				URLConnection.guessContentTypeFromName(connection.getURL().toExternalForm());
 	}
 
 	protected static Charset guessCharset(URLConnection connection){
