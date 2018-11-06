@@ -9,7 +9,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>test</artifactId>
+    <artifactId>parser-rfcmessage</artifactId>
     <build>
         <plugins>
             <plugin>
@@ -22,45 +22,32 @@
             </plugin>
         </plugins>
     </build>
+
     <dependencies>
         <dependency>
-            <groupId>net.miscfolder.bojiti</groupId>
-            <artifactId>downloader-jdk</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <groupId>org.apache.james</groupId>
+            <artifactId>apache-mime4j-core</artifactId>
+            <version>0.8.2</version>
+            <type>pom</type>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/org.apache.james/apache-mime4j-dom -->
+        <dependency>
+            <groupId>org.apache.james</groupId>
+            <artifactId>apache-mime4j-dom</artifactId>
+            <version>0.8.2</version>
         </dependency>
         <dependency>
-            <groupId>net.miscfolder.bojiti</groupId>
-            <artifactId>downloader-protopack</artifactId>
+            <groupId>net.miscfolder.protopack</groupId>
+            <artifactId>Protopack</artifactId>
             <version>1.0-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>net.miscfolder.bojiti</groupId>
-            <artifactId>parser-jsoup</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>net.miscfolder.bojiti</groupId>
             <artifactId>parser-regex</artifactId>
             <version>1.0-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>net.miscfolder.roxyproxy</groupId>
-            <artifactId>roxyproxy</artifactId>
-            <version>1.0-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>net.miscfolder.bojiti</groupId>
-            <artifactId>parser-json</artifactId>
-            <version>1.0-SNAPSHOT</version>
             <scope>compile</scope>
         </dependency>
-        <dependency>
-            <groupId>net.miscfolder.bojiti</groupId>
-            <artifactId>parser-rfcmessage</artifactId>
-            <version>1.0-SNAPSHOT</version>
-            <scope>compile</scope>
-        </dependency>
+
     </dependencies>
-
-
 </project>

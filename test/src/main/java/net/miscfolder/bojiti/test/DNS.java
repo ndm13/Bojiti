@@ -14,10 +14,18 @@ public class DNS{
 	}
 
 	private static Set<String> goodHosts = ConcurrentHashMap.newKeySet();
+	private static Set<String> badHosts = ConcurrentHashMap.newKeySet();
+
+	public static void addBadHost(String host){
+		badHosts.add(host);
+	}
 
 	public static boolean shouldTry(URI uri){
 		if(uri == null) return false;
-		if(uri.getHost() != null && goodHosts.contains(uri.getHost())) return true;
+		if(uri.getHost() != null){
+			if(goodHosts.contains(uri.getHost())) return true;
+			if(badHosts.contains(uri.getHost())) return false;
+		}
 
 		try{
 			URL url = uri.toURL();

@@ -5,8 +5,12 @@ import net.miscfolder.bojiti.downloader.RedirectionException;
 import net.miscfolder.bojiti.downloader.Response;
 import net.miscfolder.bojiti.downloader.URLConnectionDownloader;
 
+import javax.net.ssl.*;
 import java.io.IOException;
 import java.net.*;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.X509Certificate;
 import java.util.*;
 import java.util.function.Consumer;
 
@@ -14,10 +18,57 @@ import java.util.function.Consumer;
 public class HttpDownloader extends URLConnectionDownloader{
 	private static final System.Logger LOGGER = System.getLogger(HttpDownloader.class.getName());
 
+	private static volatile boolean sslBypassed = false;
+	private static final Object sslBypassLock = new Object();
+	private static final SSLSocketFactory defaultSocketFactory = HttpsURLConnection.getDefaultSSLSocketFactory();
+	private static final HostnameVerifier defaultHostnameVerifier = HttpsURLConnection.getDefaultHostnameVerifier();
+
 	private String userAgent;
 
 	public HttpDownloader(){
-		this.userAgent = "Mozilla/5.0 (Windows NT 6.1; rv:57.0) Gecko/20100101 Firefox/57.0";
+		this.userAgent = "Mozilla/5.0 (Windows NT 6.1; rv:60.0) Gecko/20100101 Firefox/60.0";
+		installSSLBypass();
+	}
+
+	public static void installSSLBypass(){
+		if(sslBypassed) return;
+		synchronized(sslBypassLock){
+			if(sslBypassed) return;
+			TrustManager[] trustAll = new TrustManager[]{
+					new X509TrustManager(){
+						@Override
+						public void checkClientTrusted(X509Certificate[] x509Certificates, String s){
+						}
+
+						public java.security.cert.X509Certificate[] getAcceptedIssuers(){
+							return null;
+						}
+
+						public void checkServerTrusted(X509Certificate[] certs, String authType){
+						}
+					}
+			};
+			try{
+				SSLContext context = SSLContext.getInstance("SSL");
+				context.init(null, trustAll, new java.security.SecureRandom());
+				HttpsURLConnection.setDefaultSSLSocketFactory(context.getSocketFactory());
+			}catch(NoSuchAlgorithmException e){
+				throw new IllegalStateException("SSL context not available", e);
+			}catch(KeyManagementException e){
+				throw new IllegalStateException("Paradox: Java SecureRandom not from Java", e);
+			}
+			HttpsURLConnection.setDefaultHostnameVerifier((h, s) -> true);
+			sslBypassed = true;
+		}
+	}
+
+	public static void removeSSLBypass(){
+		if(!sslBypassed) return;
+		synchronized(sslBypassLock){
+			if(!sslBypassed) return;
+			HttpsURLConnection.setDefaultSSLSocketFactory(defaultSocketFactory);
+			HttpsURLConnection.setDefaultHostnameVerifier(defaultHostnameVerifier);
+		}
 	}
 
 	@Override

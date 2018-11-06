@@ -6,12 +6,8 @@ import net.miscfolder.bojiti.parser.Parser;
 import net.miscfolder.bojiti.parser.ParserException;
 import net.miscfolder.bojiti.support.CharBufferReader;
 
-import java.io.CharArrayReader;
-import java.io.Reader;
-import java.io.StringReader;
 import java.net.URI;
 import java.net.URL;
-import java.nio.CharBuffer;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -19,10 +15,10 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
-@MimeTypes({"application/json", "text/json"})
+@MimeTypes({"application/json", "application/ld+json", "text/json", "text/ld+json"})
 public class JSONParser implements Parser{
 	public Set<URI> parse(URL url, CharSequence chars, Consumer<ParserException> callback){
-		JsonStreamParser parser = new JsonStreamParser(findReader(chars));
+		JsonStreamParser parser = new JsonStreamParser(CharBufferReader.findReader(chars));
 		Set<URI> uris = ConcurrentHashMap.newKeySet();
 		while(parser.hasNext()){
 			JsonElement element = parser.next();
@@ -66,15 +62,4 @@ public class JSONParser implements Parser{
 		return uris;
 	}
 
-	private static Reader findReader(CharSequence sequence){
-		if(sequence instanceof CharBuffer){
-			CharBuffer buffer = (CharBuffer) sequence;
-			if(buffer.hasArray())
-				return new CharArrayReader(buffer.array());
-			return new CharBufferReader(buffer);
-		}
-		if(sequence instanceof String)
-			return new StringReader((String) sequence);
-		return new StringReader(sequence.toString());
-	}
 }

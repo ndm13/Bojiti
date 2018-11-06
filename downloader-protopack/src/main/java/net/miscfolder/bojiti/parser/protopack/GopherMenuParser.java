@@ -38,6 +38,11 @@ public class GopherMenuParser implements Parser{
 			if(line.length() > 1){
 				String[] parts = line.split("\t");
 				try{
+					// BUGFIX - Some servers don't tab-separate part identifier
+					if(parts.length == 4){
+						parts = new String[]{String.valueOf(parts[0].charAt(0)), parts[0].substring(1), parts[1],
+									parts[2], parts[3]};
+					}
 					char itemType = parts[0].charAt(0);
 					String userDisplayString = parts[1],
 							selector = parts[2],
@@ -83,8 +88,23 @@ public class GopherMenuParser implements Parser{
 		}
 
 		Parser textParser = Parser.SPI.getFirst("text/plain");
-		if(textParser != null)
-			uris.addAll(textParser.parse(url, text.toString(), callback));
+		if(textParser != null){
+			// Now that we have the greedy text parser, we need to remove
+			// same-domain+protocol+port URLs because they probably have
+			// the wrong slashtype
+			try{
+				URI current = url.toURI();
+				for(URI uri : textParser.parse(url, text.toString(), callback)){
+					if(!uri.getHost().equals(current.getHost()) ||
+							!uri.getScheme().equals(current.getScheme()) ||
+							uri.getPort() != current.getPort()){
+						uris.add(uri);
+					}
+				}
+			}catch(URISyntaxException ignore){
+
+			}
+		}
 
 		return uris;
 	}

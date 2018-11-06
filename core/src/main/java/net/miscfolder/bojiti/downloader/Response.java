@@ -53,6 +53,10 @@ public class Response{
 	}
 
 	public String getBasicContentType(){
+		return Response.getBasicContentType(contentType);
+	}
+
+	public static String getBasicContentType(String contentType){
 		int semicolon = contentType.indexOf(';');
 		return semicolon == -1 ? contentType : contentType.substring(0, semicolon).trim();
 	}

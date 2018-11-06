@@ -1,7 +1,6 @@
 package net.miscfolder.bojiti.support;
 
-import java.io.IOException;
-import java.io.Reader;
+import java.io.*;
 import java.nio.BufferUnderflowException;
 import java.nio.CharBuffer;
 
@@ -11,6 +10,18 @@ public class CharBufferReader extends Reader{
 
 	public CharBufferReader(CharBuffer buffer){
 		this.buffer = buffer;
+	}
+
+	public static Reader findReader(CharSequence sequence){
+		if(sequence instanceof CharBuffer){
+			CharBuffer buffer = (CharBuffer) sequence;
+			if(buffer.hasArray())
+				return new CharArrayReader(buffer.array());
+			return new CharBufferReader(buffer);
+		}
+		if(sequence instanceof String)
+			return new StringReader((String) sequence);
+		return new StringReader(sequence.toString());
 	}
 
 	@Override

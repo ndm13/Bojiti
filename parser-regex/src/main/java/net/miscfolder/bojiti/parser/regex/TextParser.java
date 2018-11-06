@@ -47,8 +47,9 @@ public class TextParser extends RegexBasedParser{
 		Matcher matcher = TEXT_URL_FINDER.matcher(deobfuscated);
 
 		while(matcher.find()){
+			URI absolute = null;
 			try{
-				URI absolute = new URI(finesse(url, matcher.group(), false));
+				absolute = new URI(finesse(url, matcher.group(), false));
 				LOGGER.log(System.Logger.Level.INFO, "PARSED:\n\t" +
 						RegexParserException.matcherContext(deobfuscated, matcher) +
 						"\n\t" + absolute.toASCIIString() + "\n\tvia " + url.toExternalForm());
@@ -58,10 +59,16 @@ public class TextParser extends RegexBasedParser{
 			}
 			try{
 				URI relative = new URI(finesse(url, matcher.group(), true));
-				LOGGER.log(System.Logger.Level.INFO, "PARSED:\n\t" +
-						RegexParserException.matcherContext(deobfuscated, matcher) +
-						"\n\t" + relative.toASCIIString() + "\n\tvia " + url.toExternalForm());
-				matches.add(relative);
+				// We don't want to add a relative version if it has a user info section;
+				// those are reserved for things like mailto and make no sense otherwise.
+				// The double-check was intended for ambiguous name.ext anyway.
+				if(absolute == null || (absolute.getRawUserInfo() == null &&
+						(absolute.getSchemeSpecificPart() == null || !absolute.getSchemeSpecificPart().contains("@")))){
+					LOGGER.log(System.Logger.Level.INFO, "PARSED:\n\t" +
+							RegexParserException.matcherContext(deobfuscated, matcher) +
+							"\n\t" + relative.toASCIIString() + "\n\tvia " + url.toExternalForm());
+					matches.add(relative);
+				}
 			}catch(URISyntaxException e){
 				callback.accept(new RegexParserException(e, deobfuscated, matcher));
 			}
