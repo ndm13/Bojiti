@@ -120,6 +120,7 @@ public class HttpDownloader extends URLConnectionDownloader{
 		Set<URI> targets = new HashSet<>();
 		for(String target : targetList){
 			try{
+				// FIXME so apparently pipes are allowed in URLs but not URIs and the encoder can throw a URISE
 				targets.add(new URL(connection.getURL(), target).toURI());
 			}catch(MalformedURLException | URISyntaxException e){
 				LOGGER.log(System.Logger.Level.WARNING,

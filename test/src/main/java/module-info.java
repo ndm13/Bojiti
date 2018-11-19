@@ -11,6 +11,7 @@ module net.miscfolder.bojiti.test {
 	requires net.miscfolder.roxyproxy;
 	requires net.miscfolder.protopack;
 	requires java.logging;
+	requires java.desktop;
 
 	uses net.miscfolder.bojiti.parser.Parser;
 	uses net.miscfolder.bojiti.downloader.Downloader;

@@ -11,6 +11,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -35,7 +36,7 @@ public class TextParser extends RegexBasedParser{
 					"(#[\\d\\p{L}-_~%+.:*!()]*)?", Pattern.CASE_INSENSITIVE);
 
 	@Override
-	public Set<URI> parse(URL url, CharSequence chars, Consumer<ParserException> callback){
+	public Set<URI> parse(URL url, CharSequence chars, Consumer<ParserException> callback, IntConsumer count){
 		Map<Pattern,String> replacementMap = new HashMap<>();
 		replacementMap.put(WIDE_SPACE, " ");
 		replacementMap.put(NOSPAM,"");
@@ -43,6 +44,7 @@ public class TextParser extends RegexBasedParser{
 		replacementMap.put(OBFUSCATED_DOT,".");
 		replacementMap.put(OBFUSCATED_SLASH,"/");
 		String deobfuscated = multimatch(chars, replacementMap).toString();
+		chars = null;   // GC
 		Set<URI> matches = new HashSet<>();
 		Matcher matcher = TEXT_URL_FINDER.matcher(deobfuscated);
 
@@ -54,6 +56,7 @@ public class TextParser extends RegexBasedParser{
 						RegexParserException.matcherContext(deobfuscated, matcher) +
 						"\n\t" + absolute.toASCIIString() + "\n\tvia " + url.toExternalForm());
 				matches.add(absolute);
+				count.accept(matches.size());
 			}catch(URISyntaxException e){
 				callback.accept(new RegexParserException(e, deobfuscated, matcher));
 			}
@@ -68,6 +71,7 @@ public class TextParser extends RegexBasedParser{
 							RegexParserException.matcherContext(deobfuscated, matcher) +
 							"\n\t" + relative.toASCIIString() + "\n\tvia " + url.toExternalForm());
 					matches.add(relative);
+					count.accept(matches.size());
 				}
 			}catch(URISyntaxException e){
 				callback.accept(new RegexParserException(e, deobfuscated, matcher));

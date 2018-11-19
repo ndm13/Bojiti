@@ -17,6 +17,7 @@ import java.util.HashSet;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -49,12 +50,13 @@ public class HTMLParser implements Parser{
 	}
 
 	@Override
-	public Set<URI> parse(URL url, CharSequence chars, Consumer<ParserException> callback){
+	public Set<URI> parse(URL url, CharSequence chars, Consumer<ParserException> callback, IntConsumer count){
 		// We've got a 99% chance of this being a CharBuffer.
 		// We can take advantage of this using CharArrayReader.
 		Document document = (chars instanceof CharBuffer ?
 				            loadWithReader((CharBuffer) chars, url) :
 							loadWithString(chars.toString(), url));
+		chars = null;
 		URL base = null;
 		try{
 			// If the document sets a base URL, use that
@@ -64,7 +66,7 @@ public class HTMLParser implements Parser{
 			base = url;
 		}
 
-		return parseWithFlattenedNodeChain(url, base, document, callback);
+		return parseWithFlattenedNodeChain(url, base, document, callback, count);
 	}
 
 	private Document loadWithString(String string, URL url){
@@ -76,7 +78,8 @@ public class HTMLParser implements Parser{
 				.parseInput(buffer.hasArray() ? new CharArrayReader(buffer.array()) : new CharBufferReader(buffer), url.toExternalForm());
 	}
 
-	Set<URI> parseWithFlattenedNodeChain(URL original, URL base, Document document, Consumer<ParserException> callback){
+	Set<URI> parseWithFlattenedNodeChain(URL original, URL base, Document document, Consumer<ParserException> callback,
+	                                     IntConsumer count){
 		Set<URI> uris = new HashSet<>();
 		StringBuilder
 				comments = new StringBuilder(),
@@ -128,12 +131,16 @@ public class HTMLParser implements Parser{
 					}
 				}
 			}
+			count.accept(uris.size());
 		});
 		if(Cache.TEXT.get() != null){
-			uris.addAll(Cache.TEXT.get().parse(base, comments, callback));
-			uris.addAll(Cache.TEXT.get().parse(base, content, callback));
+			uris.addAll(Cache.TEXT.get().parse(base, comments, callback, i->count.accept(uris.size() + i)));
+			count.accept(uris.size());
+			uris.addAll(Cache.TEXT.get().parse(base, content, callback, i->count.accept(uris.size() + i)));
+			count.accept(uris.size());
 		}
 		uris.remove(null);
+		count.accept(uris.size());
 
 		return uris;
 	}

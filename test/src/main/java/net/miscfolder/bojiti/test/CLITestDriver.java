@@ -4,6 +4,7 @@ import net.miscfolder.bojiti.downloader.Downloader;
 import net.miscfolder.bojiti.downloader.RedirectionException;
 import net.miscfolder.bojiti.downloader.Response;
 import net.miscfolder.bojiti.parser.Parser;
+import net.miscfolder.bojiti.test.support.DNS;
 import net.miscfolder.protopack.ProtoPack;
 import net.miscfolder.roxyproxy.RoxyProxy;
 import net.miscfolder.roxyproxy.implementations.TorProxyPlugin;
@@ -40,7 +41,7 @@ public class CLITestDriver{
 		sc.close();
 
 		URI current;
-		while(parsed.get() < 100 && null != (current = queue.pollFirst(600, TimeUnit.SECONDS))){
+		while(parsed.get() < 10 && null != (current = queue.pollFirst(600, TimeUnit.SECONDS))){
 			URI finalCurrent = current;
 			checked.add(finalCurrent);
 			service.submit(()-> {

@@ -11,6 +11,7 @@ import java.net.URL;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 import java.util.regex.Pattern;
 
 @MimeTypes("text/x-gopher-menu")
@@ -31,10 +32,12 @@ public class GopherMenuParser implements Parser{
 			GOPHER_ERROR = '3';
 
 	@Override
-	public Set<URI> parse(URL url, CharSequence chars, Consumer<ParserException> callback){
+	public Set<URI> parse(URL url, CharSequence chars, Consumer<ParserException> callback, IntConsumer count){
 		StringBuilder text = new StringBuilder();
 		Set<URI> uris = new HashSet<>();
-		for(String line : GOPHER_NEWLINE_PATTERN.split(chars)){
+		String[] lines = GOPHER_NEWLINE_PATTERN.split(chars);
+		chars = null;   // GC
+		for(String line : lines){
 			if(line.length() > 1){
 				String[] parts = line.split("\t");
 				try{
@@ -78,6 +81,7 @@ public class GopherMenuParser implements Parser{
 								port != 70 ? port : -1,
 								"/" + itemType + selector,
 								null, null));
+						count.accept(uris.size());
 					}
 				}catch(URISyntaxException e){
 					callback.accept(new InvalidMenuItemException(parts, "URL non-resolvable", e));
@@ -94,11 +98,12 @@ public class GopherMenuParser implements Parser{
 			// the wrong slashtype
 			try{
 				URI current = url.toURI();
-				for(URI uri : textParser.parse(url, text.toString(), callback)){
+				for(URI uri : textParser.parse(url, text.toString(), callback, i->count.accept(uris.size() + i))){
 					if(!uri.getHost().equals(current.getHost()) ||
 							!uri.getScheme().equals(current.getScheme()) ||
 							uri.getPort() != current.getPort()){
 						uris.add(uri);
+						count.accept(uris.size());
 					}
 				}
 			}catch(URISyntaxException ignore){

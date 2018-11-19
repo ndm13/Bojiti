@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class Response{
+
 	// TODO config
 	public static final String CONTENT_HASH_TYPE = "SHA-256";
 	// TODO config
@@ -26,7 +27,7 @@ public class Response{
 	private final LocalDateTime accessed;
 	private final long size, ms;
 	private final byte[] contentHash;
-	private final CharBuffer content;
+	private CharBuffer content;
 
 	private Response(URL url, Charset charset, String contentType, LocalDateTime accessed, long size, long ms,
 	                 byte[] contentHash, CharBuffer content){
@@ -46,6 +47,10 @@ public class Response{
 
 	public Charset getCharset(){
 		return charset;
+	}
+
+	public void clearContent(){
+		content = null;
 	}
 
 	public String getContentType(){

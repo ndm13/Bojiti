@@ -1,6 +1,7 @@
-package net.miscfolder.bojiti.test;
+package net.miscfolder.bojiti.test.support;
 
 import java.net.*;
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -14,7 +15,7 @@ public class DNS{
 	}
 
 	private static Set<String> goodHosts = ConcurrentHashMap.newKeySet();
-	private static Set<String> badHosts = ConcurrentHashMap.newKeySet();
+	private static Set<String> badHosts = new TimeoutSet<>(ConcurrentHashMap::new, Duration.ofMinutes(10));
 
 	public static void addBadHost(String host){
 		badHosts.add(host);
@@ -55,6 +56,7 @@ public class DNS{
 				return true;
 			}
 		}catch(UnknownHostException ignore){}
+		badHosts.add(uri.getHost());
 		return false;
 	}
 }

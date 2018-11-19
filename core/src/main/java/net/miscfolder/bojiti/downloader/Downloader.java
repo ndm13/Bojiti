@@ -11,5 +11,8 @@ public interface Downloader{
 			new SPI<>(Downloader.class, Protocols.class, Protocols::value);
 
 	Response download(URL url, Consumer<Response.Progress> callback) throws IOException, RedirectionException;
-	
+
+	default Response download(URL url) throws IOException, RedirectionException{
+		return download(url, x->{});
+	}
 }

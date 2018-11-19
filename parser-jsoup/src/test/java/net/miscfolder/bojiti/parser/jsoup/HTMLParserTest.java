@@ -39,7 +39,7 @@ class HTMLParserTest{
 
 	@Test
 	void parseWithFlattenedNodeChain(){
-		parser.parseWithFlattenedNodeChain(url, documentBase, document, x->{});
+		parser.parseWithFlattenedNodeChain(url, documentBase, document, x->{}, x->{});
 	}
 
 	private static String scanURLToString(URL url) throws IOException{

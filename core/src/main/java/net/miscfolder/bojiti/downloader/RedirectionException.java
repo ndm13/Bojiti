@@ -11,12 +11,6 @@ public class RedirectionException extends Exception{
 	private final int status;
 	private Response response;
 
-	public RedirectionException(URL source, int status, Set<URI> targets){
-		this.source = source;
-		this.status = status;
-		this.targets = Collections.unmodifiableSet(targets);
-	}
-
 	public RedirectionException(Response response, int status, Set<URI> redirectTargets){
 		this.source = response.getURL();
 		this.status = status;
@@ -34,10 +28,6 @@ public class RedirectionException extends Exception{
 
 	public Set<URI> getTargets(){
 		return targets;
-	}
-
-	public boolean hasResponse(){
-		return response != null;
 	}
 
 	public Response getResponse(){
