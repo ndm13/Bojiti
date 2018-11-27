@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.net.*;
 import java.util.EventListener;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -45,6 +46,12 @@ public class Controller implements Runnable{
 	Controller(){
 		ProtoPack.install();
 		RoxyProxy.install(TorProxyPlugin.DEFAULT);
+		Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
+			synchronized(System.err){
+				System.err.println(t.getName() + " threw " + e.getClass().getName() + ": " + e.getLocalizedMessage());
+				e.printStackTrace();
+			}
+		});
 	}
 
 	public void add(URI uri){
@@ -167,8 +174,8 @@ public class Controller implements Runnable{
 		private final URI uri;
 
 		ParseJob(Response response, URI uri){
-			this.response = response;
-			this.uri = uri;
+			this.response = Objects.requireNonNull(response);
+			this.uri = Objects.requireNonNull(uri);
 		}
 
 		@Override
@@ -184,7 +191,15 @@ public class Controller implements Runnable{
 						e -> asyncEventService.submit(() -> parseEventListeners.forEach(l -> l.onException(uri, e))),
 						i -> asyncEventService.submit(() -> parseEventListeners.forEach(l -> l.onUpdate(uri, i))));
 				response.clearContent();
-				uris.parallelStream().map(this::cleanup).filter(DNS::shouldTry).filter(checked::add).forEach(queue::add);
+				AtomicInteger size = new AtomicInteger(uris.size());
+				for(URI u : uris){
+					final URI clean = cleanup(u);
+					if(DNS.shouldTry(clean) && checked.add(clean)){
+						queue.add(clean);
+					}else{
+						parseEventListeners.forEach(l->l.onUpdate(uri, size.decrementAndGet()));
+					}
+				}
 				asyncEventService.submit(() -> parseEventListeners.forEach(l -> l.onComplete(uri, uris.size())));
 			}catch(NoSuchElementException ignore){
 				response.clearContent();
@@ -199,7 +214,7 @@ public class Controller implements Runnable{
 				URL url = uri.toURL();
 				boolean negative = url.getPort() == url.getDefaultPort();
 				if(negative || url.getRef() != null){
-					return new URI(uri.getScheme(), uri.getRawUserInfo(), uri.getHost(), negative ? -1 : uri.getPort(),
+					return new URI(uri.getScheme(), uri.getRawUserInfo(), uri.getHost().toLowerCase(), negative ? -1 : uri.getPort(),
 							uri.getRawPath(), uri.getRawQuery(), null);
 				}
 				return uri;

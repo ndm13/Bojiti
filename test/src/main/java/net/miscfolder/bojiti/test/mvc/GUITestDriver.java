@@ -5,6 +5,7 @@ import net.miscfolder.bojiti.test.mvc.swing.ProgressTableModel;
 import net.miscfolder.bojiti.test.mvc.swing.URITableModel;
 
 import javax.swing.*;
+import javax.swing.border.BevelBorder;
 import java.awt.*;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -25,7 +26,8 @@ public class GUITestDriver extends JFrame{
 
 		BorderLayout layout = new BorderLayout();
 		layout.addLayoutComponent(buildSidebar(), BorderLayout.WEST);
-		layout.addLayoutComponent(buildMenu(), BorderLayout.NORTH);
+		//layout.addLayoutComponent(buildMenu(), BorderLayout.NORTH);
+		//layout.addLayoutComponent(buildStatusBar(), BorderLayout.SOUTH);
 
 		setLayout(layout);
 		setTitle("GUITestDriver - Bojiti");
@@ -49,6 +51,7 @@ public class GUITestDriver extends JFrame{
 		mainSplit.add(new JScrollPane(parsing), JSplitPane.BOTTOM);
 		add(mainSplit);
 		layout.addLayoutComponent(mainSplit, BorderLayout.CENTER);
+
 	}
 
 	@Override
@@ -117,6 +120,23 @@ public class GUITestDriver extends JFrame{
 		menu.add(file);
 		add(menu);
 		return menu;
+	}
+
+	private JPanel buildStatusBar(){
+		JPanel status = new JPanel();
+		GridBagLayout statusLayout = new GridBagLayout();
+		GridBagConstraints statusConstraints = new GridBagConstraints();
+		statusConstraints.weighty = 1;
+		statusConstraints.gridy = 0;
+		status.setLayout(statusLayout);
+
+		JPanel bytes = new JPanel();
+		bytes.setBorder(new BevelBorder(BevelBorder.LOWERED));
+		bytes.add(new JLabel("Total Bytes:"));
+
+		status.add(bytes, statusConstraints);
+		add(status);
+		return status;
 	}
 
 	public static void main(String[] args) throws ClassNotFoundException, UnsupportedLookAndFeelException, InstantiationException, IllegalAccessException{

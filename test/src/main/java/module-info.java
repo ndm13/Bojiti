@@ -13,6 +13,9 @@ module net.miscfolder.bojiti.test {
 	requires java.logging;
 	requires java.desktop;
 
+	requires minidns.core;
+	requires minidns.client;
+
 	uses net.miscfolder.bojiti.parser.Parser;
 	uses net.miscfolder.bojiti.downloader.Downloader;
 }
