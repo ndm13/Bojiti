@@ -1,5 +1,6 @@
 package net.miscfolder.bojiti.test.mvc;
 
+import net.miscfolder.bojiti.crawler.TerminationException;
 import net.miscfolder.bojiti.test.mvc.swing.FancyCellRenderer;
 import net.miscfolder.bojiti.test.mvc.swing.ProgressTableModel;
 import net.miscfolder.bojiti.test.mvc.swing.URITableModel;
@@ -37,13 +38,13 @@ public class GUITestDriver extends JFrame{
 		toggle.addActionListener(e->toggleButtonClick());
 
 		ProgressTableModel downloadingModel = new ProgressTableModel();
-		controller.addDownloadListener(downloadingModel);
+		controller.addDownloadEventListener(downloadingModel);
 		JTable downloading = new JTable(downloadingModel);
 		downloadingModel.setTableForProgressRepaint(downloading);
 		downloading.getColumnModel().getColumn(3).setCellRenderer(new FancyCellRenderer());
 
 		URITableModel parsingModel = new URITableModel();
-		controller.addParseListener(parsingModel);
+		controller.addParseEventListener(parsingModel);
 		JTable parsing = new JTable(parsingModel);
 
 		mainSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
@@ -63,11 +64,11 @@ public class GUITestDriver extends JFrame{
 	private void addButtonClick(){
 		add.setEnabled(false);
 		SwingUtilities.invokeLater(()-> {
-			String candidate = JOptionPane.showInputDialog(this, "Enter the URI to add:",
+			String candidate = JOptionPane.showInputDialog(this, "Enter the URI to seed:",
 					"Add URI", JOptionPane.QUESTION_MESSAGE);
 			try{
 				URI uri = new URI(candidate);
-				controller.add(uri);
+				controller.seed(uri);
 			}catch(URISyntaxException e){
 				JOptionPane.showMessageDialog(this, "URI invalid!", "Add URI Failed",
 						JOptionPane.ERROR_MESSAGE);
@@ -83,9 +84,9 @@ public class GUITestDriver extends JFrame{
 		SwingUtilities.invokeLater(()-> {
 			if(controller.isStarted()){
 				try{
-					controller.stop();
+					controller.shutdown();
 					toggle.setText("Start");
-				}catch(InterruptedException e){
+				}catch(TerminationException e){
 					JOptionPane.showMessageDialog(this, "Shutdown taking longer than usual.",
 							"Stop Crawler Failed", JOptionPane.ERROR_MESSAGE);
 				}

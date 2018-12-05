@@ -1,7 +1,7 @@
 package net.miscfolder.bojiti.test.mvc.swing;
 
+import net.miscfolder.bojiti.crawler.DownloadEventListener;
 import net.miscfolder.bojiti.downloader.Response;
-import net.miscfolder.bojiti.test.mvc.Controller;
 
 import javax.swing.*;
 import java.net.MalformedURLException;
@@ -14,7 +14,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
-public class ProgressTableModel extends ListTableModel<Response.Progress> implements Controller.DownloadEventListener{
+public class ProgressTableModel extends ListTableModel<Response.Progress> implements DownloadEventListener{
 	private final Map<URI, Response.Progress> map = new ConcurrentHashMap<>();
 	private static final Map<Response.Progress, JProgressBar> progressMap = new ConcurrentHashMap<>();
 	private static final JProgressBar indeterminate = new JProgressBar(){

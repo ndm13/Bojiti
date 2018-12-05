@@ -1,10 +1,10 @@
 package net.miscfolder.bojiti.test.mvc;
 
+import net.miscfolder.bojiti.crawler.AbstractCrawler;
 import net.miscfolder.bojiti.downloader.Downloader;
 import net.miscfolder.bojiti.downloader.RedirectionException;
 import net.miscfolder.bojiti.downloader.Response;
 import net.miscfolder.bojiti.parser.Parser;
-import net.miscfolder.bojiti.parser.ParserException;
 import net.miscfolder.bojiti.test.support.DNS;
 import net.miscfolder.bojiti.test.support.TimeoutSet;
 import net.miscfolder.protopack.ProtoPack;
@@ -14,14 +14,14 @@ import net.miscfolder.roxyproxy.implementations.TorProxyPlugin;
 import java.io.IOException;
 import java.net.*;
 import java.time.Duration;
-import java.util.EventListener;
+import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class Controller implements Runnable{
+public class Controller extends AbstractCrawler{
 	private static final int DOWNLOADING_THREADS = Runtime.getRuntime().availableProcessors() * 3;
 	private static final int PARSING_THREADS = Runtime.getRuntime().availableProcessors() * 6;
 	private static final int ASYNC_THREADS = Runtime.getRuntime().availableProcessors() * 2;
@@ -35,16 +35,9 @@ public class Controller implements Runnable{
 	private final BlockingQueue<URI> queue = new LinkedBlockingDeque<>();
 	private final Set<URI> checked = ConcurrentHashMap.newKeySet();
 	private final Set<String> delayedHosts = new TimeoutSet<>(ConcurrentHashMap::new, Duration.ofMillis(200));
-	private final Set<DownloadEventListener> downloadEventListeners = ConcurrentHashMap.newKeySet();
-	private final Set<ParseEventListener> parseEventListeners = ConcurrentHashMap.newKeySet();
 
 	private final AtomicInteger downloading = new AtomicInteger(0);
 	private final AtomicInteger parsing = new AtomicInteger(0);
-
-	private final Object startingLock = new Object();
-
-	private Thread daemon;
-	private volatile boolean started = false;
 
 	Controller(){
 		ProtoPack.install();
@@ -57,55 +50,8 @@ public class Controller implements Runnable{
 		});
 	}
 
-	public void add(URI uri){
-		queue.add(uri);
-	}
-
-	public void addDownloadListener(DownloadEventListener listener){
-		downloadEventListeners.add(listener);
-	}
-
-	public void addParseListener(ParseEventListener listener){
-		parseEventListeners.add(listener);
-	}
-
-	public void removeDownloadListener(DownloadEventListener listener){
-		downloadEventListeners.remove(listener);
-	}
-
-	public void removeParseListener(ParseEventListener listener){
-		parseEventListeners.remove(listener);
-	}
-
-	public boolean isStarted(){
-		synchronized(startingLock){
-			return started;
-		}
-	}
-
-	public void start(){
-		if(started) return;
-		synchronized(startingLock){
-			if(started) return;
-			daemon = new Thread(this);
-			daemon.setName("Controller Daemon");
-			daemon.setDaemon(true);
-			daemon.start();
-			started = true;
-		}
-	}
-
-	public void stop() throws InterruptedException{
-		if(!started) return;
-		synchronized(startingLock){
-			if(!started) return;
-			if(daemon != null && daemon.isAlive()){
-				daemon.interrupt();
-				daemon.join();
-			}
-			daemon = null;
-			started = false;
-		}
+	public void seed(URI... uris){
+		queue.addAll(Arrays.asList(uris));
 	}
 
 	public void run(){
@@ -125,19 +71,6 @@ public class Controller implements Runnable{
 			}catch(MalformedURLException ignore){
 			}
 		}
-	}
-
-	public interface DownloadEventListener extends EventListener{
-		void onBegin(URI uri);
-		void onUpdate(URI uri, Response.Progress progress);
-		void onComplete(URI uri, Response response);
-		void onFailure(URI uri);
-	}
-	public interface ParseEventListener extends EventListener{
-		void onBegin(URI uri);
-		void onUpdate(URI uri, int count);
-		void onException(URI uri, ParserException e);
-		void onComplete(URI uri, int count);
 	}
 
 	private class DownloadJob implements Runnable{

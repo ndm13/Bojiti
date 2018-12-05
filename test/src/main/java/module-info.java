@@ -15,6 +15,7 @@ module net.miscfolder.bojiti.test {
 
 	requires minidns.core;
 	requires minidns.client;
+	requires net.miscfolder.bojiti.crawler;
 
 	uses net.miscfolder.bojiti.parser.Parser;
 	uses net.miscfolder.bojiti.downloader.Downloader;
