@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class DNS{
+	private static final System.Logger LOGGER = System.getLogger(DNS.class.getCanonicalName());
 	public static void main(String[] args) throws URISyntaxException{
 		URI uri = new URI("http://google.com");
 		long start = System.nanoTime();
@@ -78,7 +79,9 @@ public class DNS{
 				badHosts.add(uri.getHost());
 				return false;
 			}
-		}catch(IOException ignore){/* DNS server offline? */}
+		}catch(IOException e){
+			LOGGER.log(System.Logger.Level.WARNING, "MiniDNS offline or malfunctioning", e);
+		}
 
 		try{
 			if(InetAddress.getAllByName(uri.getHost()).length > 0){

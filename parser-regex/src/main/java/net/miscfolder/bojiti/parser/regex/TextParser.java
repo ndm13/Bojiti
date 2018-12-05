@@ -23,6 +23,7 @@ public class TextParser extends RegexBasedParser{
 			OBFUSCATED_AT = Pattern.compile("([\\s\\[({/:_-]+(at|@)[]/)}\\s]+|\\s@|@\\s)", Pattern.CASE_INSENSITIVE),
 			OBFUSCATED_DOT = Pattern.compile("[\\[({/:_\\-\\s]*([dD][oO][tT]|\\.)[]/)}\\s]*(?![A-Z][a-z])"),
 			OBFUSCATED_SLASH = Pattern.compile("([\\s\\[({/_-]+(slash|/)[]/)}\\s]+|\\s/|/\\s)", Pattern.CASE_INSENSITIVE),
+			OBFUSCATED_DASH = Pattern.compile("([\\s\\[({/_-]+(dash|-)[]/)}\\s]+|\\s/|/\\s)", Pattern.CASE_INSENSITIVE),
 			NOSPAM = Pattern.compile("[-._]?\\s*[\\[({:_-]*no[\\s-._]*spam[])}\\s]*", Pattern.CASE_INSENSITIVE),
 			WIDE_SPACE = Pattern.compile("\\s+"),
 			TEXT_URL_FINDER = Pattern.compile("([a-z0-9]+:)?" +
@@ -42,6 +43,7 @@ public class TextParser extends RegexBasedParser{
 		replacementMap.put(NOSPAM,"");
 		replacementMap.put(OBFUSCATED_AT,"@");
 		replacementMap.put(OBFUSCATED_DOT,".");
+		replacementMap.put(OBFUSCATED_DASH,"-");
 		replacementMap.put(OBFUSCATED_SLASH,"/");
 		String deobfuscated = multimatch(chars, replacementMap).toString();
 		chars = null;   // GC

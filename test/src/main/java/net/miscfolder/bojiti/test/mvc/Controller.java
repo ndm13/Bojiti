@@ -6,12 +6,14 @@ import net.miscfolder.bojiti.downloader.Response;
 import net.miscfolder.bojiti.parser.Parser;
 import net.miscfolder.bojiti.parser.ParserException;
 import net.miscfolder.bojiti.test.support.DNS;
+import net.miscfolder.bojiti.test.support.TimeoutSet;
 import net.miscfolder.protopack.ProtoPack;
 import net.miscfolder.roxyproxy.RoxyProxy;
 import net.miscfolder.roxyproxy.implementations.TorProxyPlugin;
 
 import java.io.IOException;
 import java.net.*;
+import java.time.Duration;
 import java.util.EventListener;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -32,6 +34,7 @@ public class Controller implements Runnable{
 
 	private final BlockingQueue<URI> queue = new LinkedBlockingDeque<>();
 	private final Set<URI> checked = ConcurrentHashMap.newKeySet();
+	private final Set<String> delayedHosts = new TimeoutSet<>(ConcurrentHashMap::new, Duration.ofMillis(200));
 	private final Set<DownloadEventListener> downloadEventListeners = ConcurrentHashMap.newKeySet();
 	private final Set<ParseEventListener> parseEventListeners = ConcurrentHashMap.newKeySet();
 
@@ -110,6 +113,11 @@ public class Controller implements Runnable{
 			try{
 				concurrentDownloads.acquire();
 				URI uri = queue.take();
+				if(!delayedHosts.add(uri.getHost())){
+					concurrentDownloads.release();
+					queue.put(uri);
+					continue;
+				}
 				final URL url = uri.toURL();
 				downloadService.execute(new DownloadJob(uri, url));
 			}catch(InterruptedException e){

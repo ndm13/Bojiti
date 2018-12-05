@@ -2,9 +2,7 @@ package net.miscfolder.bojiti.test.support;
 
 import java.time.Instant;
 import java.time.temporal.TemporalAmount;
-import java.util.AbstractSet;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Supplier;
 
 public class TimeoutSet<E> extends AbstractSet<E>{
@@ -31,6 +29,7 @@ public class TimeoutSet<E> extends AbstractSet<E>{
 	}
 
 	@Override
+	@SuppressWarnings("unchecked")  // Will throw exception by design
 	public boolean contains(Object o){
 		return null != map.compute((E)o,this::checkTimeout);
 	}
@@ -41,9 +40,6 @@ public class TimeoutSet<E> extends AbstractSet<E>{
 			Iterator<Map.Entry<E,Instant>> iterator = map.entrySet().iterator();
 			Map.Entry<E,Instant> next;
 			volatile boolean stale = true;
-			{
-				hasNext();
-			}
 
 			@Override
 			public boolean hasNext(){
@@ -60,7 +56,7 @@ public class TimeoutSet<E> extends AbstractSet<E>{
 
 			@Override
 			public E next(){
-				if(stale) hasNext();
+				if(stale && !hasNext()) throw new NoSuchElementException();
 				stale = true;
 				return next.getKey();
 			}
@@ -68,10 +64,17 @@ public class TimeoutSet<E> extends AbstractSet<E>{
 	}
 
 	@Override
+	public Spliterator<E> spliterator(){
+		return Spliterators.spliteratorUnknownSize(iterator(), Spliterator.IMMUTABLE & Spliterator.DISTINCT);
+	}
+
+	@SuppressWarnings("SimplifyStreamApiCallChains")    // Because stream uses the spliterator to populate
+	@Override
 	public Object[] toArray(){
 		return stream().toArray();
 	}
 
+	@SuppressWarnings({"SimplifyStreamApiCallChains", "unchecked"})    // Because stream uses the spliterator to populate; will throw by design
 	@Override
 	public <T> T[] toArray(T[] a){
 		return (T[]) stream().toArray();

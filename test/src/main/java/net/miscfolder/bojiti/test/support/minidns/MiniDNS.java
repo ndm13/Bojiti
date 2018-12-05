@@ -16,11 +16,15 @@ public class MiniDNS{
 		System.out.println(isValidRoot("html."));
 	}
 
-	private static final DnsClient CLIENT = new DnsClient();
+	private static final DnsClient SYSTEM_CLIENT = new DnsClient();
+	private static final AbstractDnsClient SAFE_CLIENT = new OpenNICDnsClient();
+	private static volatile boolean useSafeClient = false;
 	static{
 		DnsClient.addDnsServerLookupMechanism(new WindowsNTDnsLookup(1000));
-		CLIENT.setPreferedIpVersion(AbstractDnsClient.IpVersionSetting.v6v4);
-		CLIENT.setAskForDnssec(true);
+		SYSTEM_CLIENT.setDisableResultFilter(true);
+		SYSTEM_CLIENT.setPreferedIpVersion(AbstractDnsClient.IpVersionSetting.v4only);
+		SYSTEM_CLIENT.setAskForDnssec(true);
+		SAFE_CLIENT.setPreferedIpVersion(AbstractDnsClient.IpVersionSetting.v4only);
 	}
 	public static boolean isValidRoot(String root) throws IOException{
 		if(!root.endsWith(".")) root += ".";
@@ -32,9 +36,13 @@ public class MiniDNS{
 	}
 
 	private static boolean checkQuestion(Question question) throws IOException{
-		DnsMessage response = CLIENT.query(question);
+		DnsMessage response = (useSafeClient ? SAFE_CLIENT : SYSTEM_CLIENT).query(question);
 		if(response == null) return false;
 		if(response.responseCode.equals(DnsMessage.RESPONSE_CODE.BADNAME)) return false;
+		if(!useSafeClient && response.responseCode.equals(DnsMessage.RESPONSE_CODE.SERVER_FAIL)){
+			useSafeClient = true;
+			return checkQuestion(question);
+		}
 		Set<Data> answers = response.getAnswersFor(question);
 		return !(answers == null || answers.isEmpty());
 	}
